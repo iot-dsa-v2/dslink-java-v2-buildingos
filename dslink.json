@@ -1,0 +1,52 @@
+{
+  "name": "dslink-java-v2-buildingos",
+  "version": "1.0.1a",
+  "description": "BuildingOS Integration",
+  "main": "bin/dslink-java-v2-buildingos",
+  "configs": {
+    "main-node": {
+      "help": "Class name of the main node.",
+      "type": "string",
+      "value": "org.iot.dsa.dslink.bos.MainNode"
+    },
+    "log": {
+      "help": "all, trace, debug, info, warn, error, off",
+      "type": "enum",
+      "value": "info"
+    },
+    "msgpack": {
+      "help": "Whether or not to use msgpack.  False is helpful for debugging.",
+      "type": "bool",
+      "value": true
+    },
+    "broker": {
+      "type": "url",
+      "value": null
+    },
+    "log-file": {
+      "help": "Only set when the link is being run standalone",
+      "type": "path",
+      "value": null
+    },
+    "key": {
+      "help": "Public/private key pair used by the link.",
+      "type": "path",
+      "value": null
+    },
+    "name": {
+      "help": "Overrides the name above.",
+      "type": "string",
+      "value": null
+    },
+    "nodes": {
+      "help": "Path to the node configuration database file.",
+      "type": "path",
+      "value": null
+    },
+    "token": {
+      "help": "Authentication token for the broker.",
+      "type": "string",
+      "value": null
+    }
+  }
+}
