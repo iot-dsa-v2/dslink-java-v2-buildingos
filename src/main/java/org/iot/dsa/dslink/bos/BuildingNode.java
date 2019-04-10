@@ -1,12 +1,13 @@
 package org.iot.dsa.dslink.bos;
 
 import java.io.IOException;
-import org.iot.dsa.node.DSBool;
 import org.iot.dsa.node.DSDouble;
 import org.iot.dsa.node.DSFlexEnum;
 import org.iot.dsa.node.DSIObject;
+import org.iot.dsa.node.DSIValue;
 import org.iot.dsa.node.DSInfo;
 import org.iot.dsa.node.DSList;
+import org.iot.dsa.node.DSLong;
 import org.iot.dsa.node.DSMap;
 import org.iot.dsa.node.DSMetadata;
 import org.iot.dsa.node.DSString;
@@ -14,6 +15,7 @@ import org.iot.dsa.node.DSValueType;
 import org.iot.dsa.node.action.ActionInvocation;
 import org.iot.dsa.node.action.ActionResult;
 import org.iot.dsa.node.action.DSAction;
+import org.iot.dsa.util.DSException;
 import okhttp3.Response;
 
 public class BuildingNode extends BosObjectNode {
@@ -53,15 +55,19 @@ public class BuildingNode extends BosObjectNode {
 
             @Override
             public void prepareParameter(DSInfo target, DSMap parameter) {
-                DSList range = ((BosNode) target.get()).getChildNames();
-                if (range.size() > 0) {
-                    new DSMetadata(parameter).setType(DSFlexEnum.valueOf(range.getString(0), range));
+                DSMetadata paramMeta = new DSMetadata(parameter);
+                if (paramMeta.getName().equals("Meter")) {
+                    DSList range = ((BosNode) target.get()).getChildNames();
+                    if (range.size() > 0) {
+                        paramMeta.setType(DSFlexEnum.valueOf(range.getString(0), range));
+                    }
                 }
             }
         };
         act.addParameter("Meter", DSValueType.ENUM, null);
         act.addParameter("Subscribe Path", DSValueType.STRING, null);
         act.addDefaultParameter("Push Interval", DSDouble.valueOf(3600), "seconds");
+        act.addDefaultParameter("Maximum Batch Size", DSLong.valueOf(50), "Maximum number of updates to put in a single REST request");
         return act;
     }
     
@@ -79,6 +85,7 @@ public class BuildingNode extends BosObjectNode {
             }  
         };
         act.addParameter("displayName", DSValueType.STRING, null);
+        act.addParameter("gateway", DSValueType.STRING, null);
         act.addDefaultParameter("status", DSString.EMPTY, null);
         act.addDefaultParameter("storageUnit", DSString.EMPTY, null);
         act.addDefaultParameter("displayUnit", DSString.EMPTY, null);
@@ -91,6 +98,7 @@ public class BuildingNode extends BosObjectNode {
         act.addDefaultParameter("readingType", DSString.EMPTY, null);
         act.addParameter("Subscribe Path", DSValueType.STRING, null);
         act.addDefaultParameter("Push Interval", DSDouble.valueOf(3600), "seconds");
+        act.addDefaultParameter("Maximum Batch Size", DSLong.valueOf(50), "Maximum number of updates to put in a single REST request");
         return act;
     }
     
@@ -99,8 +107,9 @@ public class BuildingNode extends BosObjectNode {
         String url = getChildUrl(mname);
         String subPath = parameters.getString("Subscribe Path");
         double interval = parameters.getDouble("Push Interval");
+        int maxBatchSize = parameters.getInt("Maximum Batch Size");
         if (url != null) {
-            put(mname, new MeterNode(url, subPath, interval));
+            put(mname, new MeterNode(url, subPath, interval, maxBatchSize));
         }
     }
     
@@ -108,25 +117,27 @@ public class BuildingNode extends BosObjectNode {
         String name = parameters.getString("displayName");
         String subPath = parameters.getString("Subscribe Path");
         double interval = parameters.getDouble("Push Interval");
-        //TODO include building and gateway info
+        int maxBatchSize = parameters.getInt("Maximum Batch Size");
+        DSIObject idObj = get("id");
+        if (!(idObj instanceof DSIValue)) {
+            warn("missing building id");
+            return;
+        }
+        parameters.put("building", idObj.toString());
         Response resp = MainNode.getClientProxy().invoke("POST", "https://api.buildingos.com/meters/", new DSMap(), parameters.toString());
         
-        String respStr;
-        try {
-            respStr = resp.body().string();
-            DSMap json = Util.parseJsonMap(respStr);
-            String url = json.getString("url");
-            if (url != null) {
-                put(name, new MeterNode(url, subPath, interval));
-            }
-            refresh();
-        } catch (IOException e) {
-            warn("", e);
-        } finally {
-            if (resp != null) {
-                resp.close();
+        if (resp != null) {
+            try {
+                DSMap json = BosUtil.getMapFromResponse(resp);
+                String url = json.getString("url");
+                if (url != null) {
+                    put(name, new MeterNode(url, subPath, interval, maxBatchSize));
+                }
+                refresh();
+            } catch (IOException e) {
+                warn("", e);
+                DSException.throwRuntime(e);
             }
         }
-        
     }
 }

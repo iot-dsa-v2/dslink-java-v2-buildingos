@@ -1,6 +1,8 @@
 package org.iot.dsa.dslink.bos;
 
 import java.util.Map;
+import org.iot.dsa.dslink.DSIRequester;
+import org.iot.dsa.dslink.DSLinkConnection;
 import org.iot.dsa.dslink.DSMainNode;
 import org.iot.dsa.dslink.restadapter.CredentialProvider;
 import org.iot.dsa.dslink.restadapter.Util.AUTH_SCHEME;
@@ -16,6 +18,8 @@ import org.iot.dsa.node.DSValueType;
 import org.iot.dsa.node.action.ActionInvocation;
 import org.iot.dsa.node.action.ActionResult;
 import org.iot.dsa.node.action.DSAction;
+import org.iot.dsa.node.event.DSEventFilter;
+import org.iot.dsa.util.DSException;
 /**
  * The root and only node of this link.
  *
@@ -25,7 +29,8 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
 
     private final WebClientProxy clientProxy = new WebClientProxy(this);
     private Map<String, DSMap> orgList;
-    
+    private static final Object requesterLock = new Object();
+    private static DSIRequester requester;
     private static MainNode instance;
     
     public static WebClientProxy getClientProxy() {
@@ -33,6 +38,26 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
     }
 
     public MainNode() {
+    }
+    
+    public static DSIRequester getRequester() {
+        synchronized (requesterLock) {
+            while (requester == null) {
+                try {
+                    requesterLock.wait();
+                } catch (InterruptedException e) {
+                    DSException.throwRuntime(e);
+                }
+            }
+            return requester;
+        }
+    }
+    
+    public static void setRequester(DSIRequester requester) {
+        synchronized (requesterLock) {
+            MainNode.requester = requester;
+            requesterLock.notifyAll();
+        }
     }
 
     
@@ -43,14 +68,19 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
     @Override
     protected void declareDefaults() {
         super.declareDefaults();
-        declareDefault(Constants.ACTION_SET_CREDS, makeSetCredentialsAction());
-        declareDefault(Constants.ACTION_ADD_ORG, makeAddOrganizationAction());
+        declareDefault(BosConstants.ACTION_SET_CREDS, makeSetCredentialsAction());
+        declareDefault(BosConstants.ACTION_ADD_ORG, makeAddOrganizationAction());
     }
     
     @Override
     protected void onStarted() {
         super.onStarted();
         instance = this;
+        getLink().getConnection().subscribe(new DSEventFilter(
+                ((event, node, child, data) -> MainNode.setRequester(
+                        getLink().getConnection().getRequester())),
+                DSLinkConnection.CONNECTED_EVENT,
+                null));
     }
     
     @Override
@@ -68,8 +98,8 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
                 return null;
             }
         };
-        act.addParameter(Constants.CLIENT_ID, DSValueType.STRING, null);
-        act.addParameter(Constants.CLIENT_SECRET, DSValueType.STRING, null);
+        act.addParameter(BosConstants.CLIENT_ID, DSValueType.STRING, null);
+        act.addParameter(BosConstants.CLIENT_SECRET, DSValueType.STRING, null);
         return act;
     }
     
@@ -95,10 +125,10 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
     }
     
     private void setCredentials(DSMap parameters) {
-        String clientID = parameters.getString(Constants.CLIENT_ID);
-        String clientSecret = parameters.getString(Constants.CLIENT_SECRET);
-        put(Constants.CLIENT_ID, clientID);
-        put(Constants.CLIENT_SECRET, clientSecret);
+        String clientID = parameters.getString(BosConstants.CLIENT_ID);
+        String clientSecret = parameters.getString(BosConstants.CLIENT_SECRET);
+        put(BosConstants.CLIENT_ID, clientID);
+        put(BosConstants.CLIENT_SECRET, clientSecret);
         refresh();
     }
     
@@ -112,7 +142,7 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
     
     private void refresh() {
         if (getClientId() != null && getClientSecret() != null) {
-            orgList = Util.getOrganizations(clientProxy);
+            orgList = BosUtil.getOrganizations(clientProxy);
         }
     }
 
@@ -131,7 +161,7 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
 
     @Override
     public String getClientId() {
-        DSIObject obj = get(Constants.CLIENT_ID);
+        DSIObject obj = get(BosConstants.CLIENT_ID);
         if (obj instanceof DSIValue) {
             return ((DSIValue) obj).toElement().toString(); 
         } else {
@@ -142,7 +172,7 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
 
     @Override
     public String getClientSecret() {
-        DSIObject obj = get(Constants.CLIENT_SECRET);
+        DSIObject obj = get(BosConstants.CLIENT_SECRET);
         if (obj instanceof DSIValue) {
             return ((DSIValue) obj).toElement().toString(); 
         } else {

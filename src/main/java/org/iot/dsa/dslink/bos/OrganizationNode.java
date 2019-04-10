@@ -1,9 +1,11 @@
 package org.iot.dsa.dslink.bos;
 
+import java.io.IOException;
 import org.iot.dsa.node.DSBool;
 import org.iot.dsa.node.DSDouble;
 import org.iot.dsa.node.DSFlexEnum;
 import org.iot.dsa.node.DSIObject;
+import org.iot.dsa.node.DSIValue;
 import org.iot.dsa.node.DSInfo;
 import org.iot.dsa.node.DSList;
 import org.iot.dsa.node.DSMap;
@@ -11,6 +13,7 @@ import org.iot.dsa.node.DSMetadata;
 import org.iot.dsa.node.action.ActionInvocation;
 import org.iot.dsa.node.action.ActionResult;
 import org.iot.dsa.node.action.DSAction;
+import org.iot.dsa.util.DSException;
 import okhttp3.Response;
 import org.iot.dsa.node.DSString;
 import org.iot.dsa.node.DSValueType;
@@ -99,21 +102,25 @@ public class OrganizationNode extends BosObjectNode {
     
     private void createBuilding(DSMap parameters) {
         String name = parameters.getString("name");
-        //TODO include org id
+        DSIObject idObj = get("id");
+        if (!(idObj instanceof DSIValue)) {
+            warn("missing org id");
+            return;
+        }
+        parameters.put("organization", idObj.toString());
         Response resp = MainNode.getClientProxy().invoke("POST", "https://api.buildingos.com/buildings/", new DSMap(), parameters.toString());
-        try {
-            String respStr = resp.body().string();
-            DSMap json = Util.parseJsonMap(respStr);
-            String url = json.getString("url");
-            if (url != null) {
-                put(name, new BuildingNode(url));
-            }
-            refresh();
-        } catch (Exception e) {
-            warn("", e);
-        } finally {
-            if (resp != null) {
-                resp.close();
+        
+        if (resp != null) {
+            try {
+                DSMap json = BosUtil.getMapFromResponse(resp);
+                String url = json.getString("url");
+                if (url != null) {
+                    put(name, new BuildingNode(url));
+                }
+                refresh();
+            } catch (IOException e) {
+                warn("", e);
+                DSException.throwRuntime(e);
             }
         }
     }

@@ -1,6 +1,6 @@
 package org.iot.dsa.dslink.bos;
 
-public class Constants {
+public class BosConstants {
     
     public static final String METHOD_GET = "GET";
     public static final String METHOD_POST = "POST";
@@ -12,7 +12,7 @@ public class Constants {
     public static final String CLIENT_SECRET = "Client Secret";
     
     
-    
+    public static final String PLACEHOLDER_UUID = "%UUID%";
     public static final String DATA_FORMAT = "{\"meta\": {\"naive_timestamp_utc\": true},\"data\": {\"%UUID%\": [%STARTBLOCK%[\"%TIMESTAMP%\", %VALUE%]%ENDBLOCK%]}}";
 
     

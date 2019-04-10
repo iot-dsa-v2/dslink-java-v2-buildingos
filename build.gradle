@@ -24,9 +24,12 @@ repositories {
 
 dependencies {
     //implementation 'org.iot-dsa:dslink-v2-websocket:+' //for a locally installed sdk
-    implementation 'com.github.iot-dsa-v2.sdk-dslink-java-v2:dslink-v2-websocket:+'
+    implementation 'com.github.iot-dsa-v2:sdk-dslink-java-v2:4fe029f787'
     implementation 'com.squareup.okhttp3:okhttp:3.14.0'
-    implementation 'com.github.iot-dsa-v2:dslink-java-v2-restadapter:v1.1.1'
+    implementation 'org.apache.commons:commons-lang3:3.8.1'
+    implementation 'com.github.iot-dsa-v2:dslink-java-v2-restadapter:v1.1.2'
+
+
 }
 
 applicationDistribution.from(new File(project.projectDir, "/dslink.json"))
