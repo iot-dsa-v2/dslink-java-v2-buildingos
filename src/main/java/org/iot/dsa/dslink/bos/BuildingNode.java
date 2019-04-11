@@ -1,6 +1,7 @@
 package org.iot.dsa.dslink.bos;
 
 import java.io.IOException;
+import java.util.List;
 import org.iot.dsa.dslink.restadapter.Constants;
 import org.iot.dsa.dslink.restadapter.Util;
 import org.iot.dsa.node.DSDouble;
@@ -36,7 +37,6 @@ public class BuildingNode extends BosObjectNode {
         super.declareDefaults();
         declareDefault("Add Meter", makeAddMeterAction());
         declareDefault("Bulk Add Meters", makeBulkAddMetersAction());
-        declareDefault("Create Meter", makeCreateMeterAction());
     }
 
     @Override
@@ -46,6 +46,12 @@ public class BuildingNode extends BosObjectNode {
             return (DSList) meters;
         }
         return null;
+    }
+    
+    @Override
+    protected void refresh() {
+        super.refresh();
+        put("Create Meter", makeCreateMeterAction());
     }
 
     private DSAction makeAddMeterAction() {
@@ -103,20 +109,29 @@ public class BuildingNode extends BosObjectNode {
 
             @Override
             public void prepareParameter(DSInfo target, DSMap parameter) {
+                DSMetadata paramMeta = new DSMetadata(parameter);
+                if (paramMeta.getName().equals("gateway")) {
+                    DSList range = new DSList();
+                    for (String key: MainNode.getGatewayList().keySet()) {
+                        range.add(key);
+                    }
+                    if (range.size() > 0) {
+                        paramMeta.setType(DSFlexEnum.valueOf(range.getString(0), range));
+                    }
+                }
             }  
         };
         act.addParameter("displayName", DSValueType.STRING, null);
-        act.addParameter("gateway", DSValueType.STRING, null);
-        act.addDefaultParameter("status", DSString.EMPTY, null);
-        act.addDefaultParameter("storageUnit", DSString.EMPTY, null);
-        act.addDefaultParameter("displayUnit", DSString.EMPTY, null);
-        act.addDefaultParameter("sourceUnit", DSString.EMPTY, null);
-        act.addDefaultParameter("resourceType", DSString.EMPTY, null);
+        act.addParameter("gateway", DSValueType.ENUM, null);
+        List<BosParameter> enumParams = BosUtil.getMeterEnumParams(MainNode.getClientProxy());
+        if (enumParams == null) {
+            return null;
+        }
+        for (BosParameter param: enumParams) {
+            act.addParameter(param.getMap());
+        }
+        act.addDefaultParameter("storageUnit", DSString.EMPTY, null);  
         act.addDefaultParameter("vendorMeterId", DSString.EMPTY, null);
-        act.addDefaultParameter("defaultTimescale", DSString.EMPTY, null);
-        act.addDefaultParameter("flatlineThreshold", DSString.EMPTY, null);
-        act.addDefaultParameter("scope", DSString.EMPTY, null);
-        act.addDefaultParameter("readingType", DSString.EMPTY, null);
         act.addParameter("Subscribe Path", DSValueType.STRING, null);
         act.addDefaultParameter("Push Interval", DSDouble.valueOf(3600), "seconds");
         act.addDefaultParameter("Maximum Batch Size", DSLong.valueOf(50), "Maximum number of updates to put in a single REST request");
@@ -171,6 +186,19 @@ public class BuildingNode extends BosObjectNode {
             return;
         }
         parameters.put("building", idObj.toString());
+        
+        List<BosParameter> enumParams = BosUtil.getMeterEnumParams(MainNode.getClientProxy());
+        if (enumParams == null) {
+            return;
+        }
+        for (BosParameter param: enumParams) {
+            String paramName = param.getName();
+            String disp = parameters.getString(paramName);
+            if (disp != null) {
+                parameters.put(paramName, param.getId(disp));
+            }
+        }
+        
         Response resp = MainNode.getClientProxy().invoke("POST", "https://api.buildingos.com/meters/", new DSMap(), parameters.toString());
         
         if (resp != null) {

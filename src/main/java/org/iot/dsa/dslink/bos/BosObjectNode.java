@@ -5,11 +5,15 @@ import java.util.HashMap;
 import java.util.Map;
 import org.iot.dsa.node.DSElement;
 import org.iot.dsa.node.DSIObject;
+import org.iot.dsa.node.DSInfo;
 import org.iot.dsa.node.DSList;
 import org.iot.dsa.node.DSMap;
 import org.iot.dsa.node.DSNode;
 import org.iot.dsa.node.DSString;
 import org.iot.dsa.node.DSMap.Entry;
+import org.iot.dsa.node.action.ActionInvocation;
+import org.iot.dsa.node.action.ActionResult;
+import org.iot.dsa.node.action.DSAction;
 import okhttp3.Response;
 
 public abstract class BosObjectNode extends DSNode implements BosNode {
@@ -34,9 +38,27 @@ public abstract class BosObjectNode extends DSNode implements BosNode {
     }
     
     @Override
+    protected void declareDefaults() {
+        super.declareDefaults();
+        declareDefault("Refresh", makeRefreshAction());
+    }
+    
+    @Override
     protected void onStable() {
         super.onStable();
         refresh();
+    }
+    
+    private DSIObject makeRefreshAction() {
+        DSAction act = new DSAction.Parameterless() {
+            
+            @Override
+            public ActionResult invoke(DSInfo target, ActionInvocation request) {
+                ((BosObjectNode) target.get()).refresh();
+                return null;
+            }
+        };
+        return act;
     }
     
     protected void refresh() {
@@ -70,13 +92,17 @@ public abstract class BosObjectNode extends DSNode implements BosNode {
             Map<String, DSMap> m = new HashMap<String, DSMap>();
             for (DSElement child: childList) {
                 if (child instanceof DSMap) {
-                    String name = ((DSMap) child).getString("name");
+                    String name = getChildDisplayName((DSMap) child);
                     m.put(name, (DSMap) child);
                 }
             }
             childMap = m;
         }
         return childMap;
+    }
+    
+    protected String getChildDisplayName(DSMap childSummary) {
+        return childSummary.getString("displayName");
     }
     
     protected abstract DSList getChildList();

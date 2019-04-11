@@ -29,6 +29,7 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
 
     private final WebClientProxy clientProxy = new WebClientProxy(this);
     private Map<String, DSMap> orgList;
+    private Map<String, String> gatewayList;
     private static final Object requesterLock = new Object();
     private static DSIRequester requester;
     private static MainNode instance;
@@ -195,6 +196,13 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
     @Override
     public Map<String, DSMap> getChildMap() {
         return orgList;
+    }
+    
+    public static Map<String, String> getGatewayList() {
+        if (instance.gatewayList == null) {
+            instance.gatewayList = BosUtil.getGatewayList(instance.clientProxy);
+        }
+        return instance.gatewayList;
     }
 
 }

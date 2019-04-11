@@ -1,6 +1,7 @@
 package org.iot.dsa.dslink.bos;
 
 import java.io.IOException;
+import java.util.List;
 import org.iot.dsa.node.DSBool;
 import org.iot.dsa.node.DSDouble;
 import org.iot.dsa.node.DSFlexEnum;
@@ -32,7 +33,6 @@ public class OrganizationNode extends BosObjectNode {
     protected void declareDefaults() {
         super.declareDefaults();
         declareDefault("Add Building", makeAddBuildingAction());
-        declareDefault("Create Building", makeCreateBuildingAction());
     }
     
     protected DSList getChildList() {
@@ -41,6 +41,12 @@ public class OrganizationNode extends BosObjectNode {
             return (DSList) buildings;
         }
         return null;
+    }
+    
+    @Override
+    protected void refresh() {
+        super.refresh();
+        put("Create Building", makeCreateBuildingAction());
     }
     
     
@@ -79,8 +85,14 @@ public class OrganizationNode extends BosObjectNode {
             }  
         };
         act.addParameter("name", DSValueType.STRING, null);
+        List<BosParameter> enumParams = BosUtil.getBuildingEnumParams(MainNode.getClientProxy());
+        if (enumParams == null) {
+            return null;
+        }
+        for (BosParameter param: enumParams) {
+            act.addParameter(param.getMap());
+        }
         act.addDefaultParameter("vendorBuildingId", DSString.EMPTY, null);
-        act.addDefaultParameter("buildingType", DSString.EMPTY, null);
         act.addDefaultParameter("address", DSString.EMPTY, null);
         act.addDefaultParameter("description", DSString.EMPTY, null);
         act.addDefaultParameter("postalCode", DSString.EMPTY, null);
@@ -108,6 +120,19 @@ public class OrganizationNode extends BosObjectNode {
             return;
         }
         parameters.put("organization", idObj.toString());
+        
+        List<BosParameter> enumParams = BosUtil.getBuildingEnumParams(MainNode.getClientProxy());
+        if (enumParams == null) {
+            return;
+        }
+        for (BosParameter param: enumParams) {
+            String paramName = param.getName();
+            String disp = parameters.getString(paramName);
+            if (disp != null) {
+                parameters.put(paramName, param.getId(disp));
+            }
+        }
+        
         Response resp = MainNode.getClientProxy().invoke("POST", "https://api.buildingos.com/buildings/", new DSMap(), parameters.toString());
         
         if (resp != null) {
