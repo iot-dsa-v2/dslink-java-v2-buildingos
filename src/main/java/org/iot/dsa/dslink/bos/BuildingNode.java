@@ -1,7 +1,10 @@
 package org.iot.dsa.dslink.bos;
 
 import java.io.IOException;
+import org.iot.dsa.dslink.restadapter.Constants;
+import org.iot.dsa.dslink.restadapter.Util;
 import org.iot.dsa.node.DSDouble;
+import org.iot.dsa.node.DSElement;
 import org.iot.dsa.node.DSFlexEnum;
 import org.iot.dsa.node.DSIObject;
 import org.iot.dsa.node.DSIValue;
@@ -32,6 +35,7 @@ public class BuildingNode extends BosObjectNode {
     protected void declareDefaults() {
         super.declareDefaults();
         declareDefault("Add Meter", makeAddMeterAction());
+        declareDefault("Bulk Add Meters", makeBulkAddMetersAction());
         declareDefault("Create Meter", makeCreateMeterAction());
     }
 
@@ -44,7 +48,7 @@ public class BuildingNode extends BosObjectNode {
         return null;
     }
 
-    private DSIObject makeAddMeterAction() {
+    private DSAction makeAddMeterAction() {
         DSAction act = new DSAction() {
             
             @Override
@@ -71,7 +75,24 @@ public class BuildingNode extends BosObjectNode {
         return act;
     }
     
-    private DSIObject makeCreateMeterAction() {
+    private DSAction makeBulkAddMetersAction() {
+        DSAction act = new DSAction() {
+            
+            @Override
+            public void prepareParameter(DSInfo target, DSMap parameter) {
+            }
+            
+            @Override
+            public ActionResult invoke(DSInfo target, ActionInvocation request) {
+                ((BuildingNode) target.get()).bulkAddMeters(request.getParameters());
+                return null;
+            }
+        };
+        act.addDefaultParameter("Meter Table", new DSList(), null);
+        return act;
+    }
+    
+    private DSAction makeCreateMeterAction() {
         DSAction act = new DSAction() {
 
             @Override
@@ -110,6 +131,32 @@ public class BuildingNode extends BosObjectNode {
         int maxBatchSize = parameters.getInt("Maximum Batch Size");
         if (url != null) {
             put(mname, new MeterNode(url, subPath, interval, maxBatchSize));
+        }
+    }
+    
+    private void bulkAddMeters(DSMap parameters) {
+        DSList table = parameters.getList(Constants.RULE_TABLE);
+        for (DSElement elem: table) {
+            String mname, subPath;
+            double interval;
+            int maxBatchSize;
+            if (elem instanceof DSMap) {
+                DSMap row = (DSMap) elem;
+                mname = row.getString("Meter");
+                subPath = row.getString("Subscribe Path");
+                interval = Util.getDouble(row, "Push Interval", 3600);
+                maxBatchSize = (int) Util.getDouble(row, "Maximum Batch Size", 50);
+                String url = getChildUrl(mname);
+                put(mname, new MeterNode(url, subPath, interval, maxBatchSize));
+            } else if (elem instanceof DSList) {
+                DSList row = (DSList) elem;
+                mname = row.getString(1);
+                subPath = row.getString(2);
+                interval = Util.getDouble(row, 3, 3600);
+                maxBatchSize = (int) Util.getDouble(row, 4, 50);
+                String url = getChildUrl(mname);
+                put(mname, new MeterNode(url, subPath, interval, maxBatchSize));
+            }
         }
     }
     
