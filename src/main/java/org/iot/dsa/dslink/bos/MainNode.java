@@ -1,5 +1,6 @@
 package org.iot.dsa.dslink.bos;
 
+import java.util.Collection;
 import java.util.Map;
 import org.iot.dsa.dslink.DSIRequester;
 import org.iot.dsa.dslink.DSLinkConnection;
@@ -88,6 +89,11 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
     protected void onStable() {
         super.onStable();
         refresh();
+    }
+    
+    @Override
+    public void getVirtualActions(DSInfo target, Collection<String> bucket) {
+        //No Virtual Actions
     }
 
     private DSAction makeSetCredentialsAction() {

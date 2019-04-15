@@ -3,7 +3,6 @@ package org.iot.dsa.dslink.bos;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Queue;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.iot.dsa.DSRuntime;
 import org.iot.dsa.DSRuntime.Timer;
 import org.iot.dsa.dslink.DSIRequester;
@@ -17,6 +16,7 @@ import org.iot.dsa.dslink.restadapter.Util;
 import org.iot.dsa.node.DSDouble;
 import org.iot.dsa.node.DSElement;
 import org.iot.dsa.node.DSFlexEnum;
+import org.iot.dsa.node.DSINumber;
 import org.iot.dsa.node.DSIObject;
 import org.iot.dsa.node.DSIValue;
 import org.iot.dsa.node.DSInfo;
@@ -45,7 +45,6 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     
     private String subPath = "";
     private OutboundStream stream;
-    private String id;
     private double interval = -1;
     private int maxBatchSize = -1;
     private Timer future;
@@ -79,24 +78,17 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     @Override
     protected void onStarted() {
         super.onStarted();
-        DSIObject pathobj = get("Subscription Path");
+        DSIObject pathobj = get("Subscribe Path");
         if (pathobj instanceof DSString) {
             this.subPath = ((DSString) pathobj).toString();
         }
-        DSIObject idobj = get("id");
-        if (idobj instanceof DSIValue) {
-            id = ((DSIValue) idobj).toElement().toString();
-        } else {
-            id = RandomStringUtils.randomAlphanumeric(12);
-            put("id", id);
-        }
         DSIObject intervobj = get("Push Interval");
-        if (intervobj instanceof DSDouble) {
-            interval = ((DSDouble) intervobj).toDouble();
+        if (intervobj instanceof DSINumber) {
+            interval = ((DSINumber) intervobj).toDouble();
         }
         DSIObject batchSizeObj = get("Maximum Batch Size");
-        if (batchSizeObj instanceof DSLong) {
-            maxBatchSize = ((DSLong) batchSizeObj).toInt();
+        if (batchSizeObj instanceof DSINumber) {
+            maxBatchSize = ((DSINumber) batchSizeObj).toInt();
         }
     }
     
@@ -104,10 +96,19 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     protected void refresh() {
         super.refresh();
         if (subPath != null) {
-            put("Subscription Path", subPath).setReadOnly(true);
+            put("Subscribe Path", subPath).setReadOnly(true);
         }
         put("Push Interval", interval).setReadOnly(true);
         put("Maximum Batch Size", maxBatchSize).setReadOnly(true);
+        DSRuntime.run(new Runnable() {
+            @Override
+            public void run() {
+                init();
+            }
+        });
+    }
+    
+    private void init() {
         DSIRequester requester = MainNode.getRequester();
         int qos = 0;
         if (subPath != null && !subPath.isEmpty()) {
@@ -117,6 +118,19 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
             long intervalMillis = (long) (interval * 1000);
             future = DSRuntime.runAfterDelay(this, intervalMillis, intervalMillis);
         }
+    }
+    
+    @Override
+    protected void onRemoved() {
+        super.onRemoved();
+        end();
+    }
+    
+    private void end() {
+        if (future != null) {
+            future.cancel();
+        }
+        close();
     }
     
     @Override
@@ -151,10 +165,7 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
         subPath = parameters.getString("Subscribe Path");
         interval = parameters.getDouble("Push Interval");
         maxBatchSize = parameters.getInt("Maximum Batch Size");
-        if (future != null) {
-            future.cancel();
-        }
-        close();
+        end();
         refresh();
     }
     
@@ -286,7 +297,12 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     @Override
     public void onUpdate(DSDateTime dateTime, DSElement value, DSStatus status) {
         info("Rule with sub path " + subPath + ": onUpdate called with value " + (value!=null ? value : "Null"));
-        Util.storeInBuffer(id, new SubUpdate(dateTime.toString(), value.toString(), status.toString(), dateTime.timeInMillis()));
+        String uuid = getUuid();
+        if (uuid == null) {
+            warn("Could not record update, no uuid found for meter " + getName());
+            return;
+        }
+        Util.storeInBuffer(uuid, new SubUpdate(dateTime.toString(), value.toString(), status.toString(), dateTime.timeInMillis()));
     }
     
     
@@ -299,7 +315,12 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
 
     @Override
     public void run() {
-        Util.processBuffer(id, this);
+        String uuid = getUuid();
+        if (uuid == null) {
+            warn("Can't send updates, no uuid found for meter " + getName());
+            return;
+        }
+        Util.processBuffer(uuid, this);
     }
 
     @Override
@@ -309,12 +330,11 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
 
     @Override
     public Queue<SubUpdate> sendBatchUpdate(Queue<SubUpdate> updates) {
-        DSIObject uuidObj = get("uuid");
-        if (!(uuidObj instanceof DSString)) {
+        String uuid = getUuid();
+        if (uuid == null) {
             warn("Can't send updates, no uuid found for meter " + getName());
             return updates;
         }
-        String uuid = ((DSString) uuidObj).toString();
         DSMap urlParams = new DSMap();
         String body = BosConstants.DATA_FORMAT.replaceAll(BosConstants.PLACEHOLDER_UUID, uuid);
         StringBuilder sb = new StringBuilder();
@@ -361,6 +381,14 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
             return ((DSString) gatewayObj).toString();
         }
         return null;
+    }
+    
+    private String getUuid() {
+        DSIObject uuidObj = get("uuid");
+        if (!(uuidObj instanceof DSString)) {
+            return null;
+        }
+        return ((DSString) uuidObj).toString();
     }
     
     private Response restInvoke(DSMap urlParams, String body) {

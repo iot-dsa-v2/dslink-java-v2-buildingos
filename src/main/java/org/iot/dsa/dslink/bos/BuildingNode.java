@@ -1,6 +1,7 @@
 package org.iot.dsa.dslink.bos;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import org.iot.dsa.dslink.restadapter.Constants;
 import org.iot.dsa.dslink.restadapter.Util;
@@ -112,7 +113,9 @@ public class BuildingNode extends BosObjectNode {
                 DSMetadata paramMeta = new DSMetadata(parameter);
                 if (paramMeta.getName().equals("gateway")) {
                     DSList range = new DSList();
-                    for (String key: MainNode.getGatewayList().keySet()) {
+                    List<String> rangeList = new ArrayList<String>(MainNode.getGatewayList().keySet());
+                    rangeList.sort(null);
+                    for (String key: rangeList) {
                         range.add(key);
                     }
                     if (range.size() > 0) {
@@ -150,7 +153,7 @@ public class BuildingNode extends BosObjectNode {
     }
     
     private void bulkAddMeters(DSMap parameters) {
-        DSList table = parameters.getList(Constants.RULE_TABLE);
+        DSList table = parameters.getList("Meter Table");
         for (DSElement elem: table) {
             String mname, subPath;
             double interval;
@@ -166,7 +169,7 @@ public class BuildingNode extends BosObjectNode {
             } else if (elem instanceof DSList) {
                 DSList row = (DSList) elem;
                 mname = row.getString(1);
-                subPath = row.getString(2);
+                subPath = row.size() > 2 ? row.getString(2) : null;
                 interval = Util.getDouble(row, 3, 3600);
                 maxBatchSize = (int) Util.getDouble(row, 4, 50);
                 String url = getChildUrl(mname);
@@ -196,6 +199,13 @@ public class BuildingNode extends BosObjectNode {
             String disp = parameters.getString(paramName);
             if (disp != null) {
                 parameters.put(paramName, param.getId(disp));
+            }
+        }
+        String gatewayName = parameters.getString("gateway");
+        if (gatewayName != null) {
+            String gatewayId  = MainNode.getGatewayList().get(gatewayName);
+            if (gatewayId != null) {
+                parameters.put("gateway", gatewayId);
             }
         }
         
