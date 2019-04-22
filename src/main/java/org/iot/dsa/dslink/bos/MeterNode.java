@@ -45,6 +45,7 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     
     private String subPath = "";
     private OutboundStream stream;
+    private DSIValue streamParams;
     private double interval = -1;
     private int maxBatchSize = -1;
     private Timer future;
@@ -53,7 +54,7 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     private DSInfo lastRespCode = getInfo(Constants.LAST_RESPONSE_CODE);
     private DSInfo lastRespData = getInfo(Constants.LAST_RESPONSE_DATA);
     private DSInfo lastRespTs = getInfo(Constants.LAST_RESPONSE_TS);
-    
+
     public MeterNode() {
         super();
     }
@@ -112,7 +113,7 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
         DSIRequester requester = MainNode.getRequester();
         int qos = 0;
         if (subPath != null && !subPath.isEmpty()) {
-            requester.subscribe(this.subPath, qos, this);
+            requester.subscribe(this.subPath, DSLong.valueOf(qos), this);
         }
         if (interval > 0) {
             long intervalMillis = (long) (interval * 1000);
@@ -292,6 +293,7 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     public void onInit(String path, DSIValue params, OutboundStream stream) {
         info("Rule with sub path " + subPath + ": onInit called");
         this.stream = stream;
+        this.streamParams = params;
     }
 
     @Override
@@ -423,6 +425,16 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
             put(lastRespData, DSString.valueOf(data));
             put(lastRespTs, DSString.valueOf(DSDateTime.valueOf(resp.receivedResponseAtMillis())));
         }
+    }
+
+    @Override
+    public DSIValue getParams() {
+        return streamParams;
+    }
+
+    @Override
+    public OutboundStream getStream() {
+        return stream;
     }
     
     
