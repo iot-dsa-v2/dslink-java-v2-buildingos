@@ -2,17 +2,22 @@ package org.iot.dsa.dslink.bos;
 
 import java.util.Collection;
 import java.util.Map;
+import org.etsdb.util.PurgeSettings;
 import org.iot.dsa.dslink.DSIRequester;
 import org.iot.dsa.dslink.DSLinkConnection;
 import org.iot.dsa.dslink.DSMainNode;
+import org.iot.dsa.dslink.restadapter.Constants;
 import org.iot.dsa.dslink.restadapter.CredentialProvider;
+import org.iot.dsa.dslink.restadapter.Util;
 import org.iot.dsa.dslink.restadapter.Util.AUTH_SCHEME;
 import org.iot.dsa.dslink.restadapter.WebClientProxy;
+import org.iot.dsa.node.DSBool;
 import org.iot.dsa.node.DSFlexEnum;
 import org.iot.dsa.node.DSIObject;
 import org.iot.dsa.node.DSIValue;
 import org.iot.dsa.node.DSInfo;
 import org.iot.dsa.node.DSList;
+import org.iot.dsa.node.DSLong;
 import org.iot.dsa.node.DSMap;
 import org.iot.dsa.node.DSMetadata;
 import org.iot.dsa.node.DSValueType;
@@ -26,7 +31,7 @@ import org.iot.dsa.util.DSException;
  *
  * @author Aaron Hansen
  */
-public class MainNode extends DSMainNode implements CredentialProvider, BosNode {
+public class MainNode extends DSMainNode implements CredentialProvider, BosNode, PurgeSettings {
 
     private final WebClientProxy clientProxy = new WebClientProxy(this);
     private Map<String, DSMap> orgList;
@@ -34,6 +39,9 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
     private static final Object requesterLock = new Object();
     private static DSIRequester requester;
     private static MainNode instance;
+    
+    private DSInfo maxBufferSize = getInfo(Constants.BUFFER_MAX_SIZE);
+    private DSInfo purgeEnabled = getInfo(Constants.BUFFER_PURGE_ENABLED);
     
     public static WebClientProxy getClientProxy() {
         return instance.clientProxy;
@@ -72,12 +80,17 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
         super.declareDefaults();
         declareDefault(BosConstants.ACTION_SET_CREDS, makeSetCredentialsAction());
         declareDefault(BosConstants.ACTION_ADD_ORG, makeAddOrganizationAction());
+        declareDefault(Constants.BUFFER_PURGE_ENABLED, DSBool.FALSE,
+                "Whether old unsent records should automatically be purged from the buffer when the buffer gets too large");
+        declareDefault(Constants.BUFFER_MAX_SIZE, DSLong.valueOf(1074000000),
+                "Maximum size of buffer in bytes; only applies if auto-purge is enabled");
     }
     
     @Override
     protected void onStarted() {
         super.onStarted();
         instance = this;
+        Util.setBufferPurgeSettings(instance);
         getLink().getConnection().subscribe(new DSEventFilter(
                 ((event, node, child, data) -> MainNode.setRequester(
                         getLink().getConnection().getRequester())),
@@ -127,7 +140,7 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
                 return null;
             }
         };
-        act.addParameter("Organization", DSValueType.ENUM, null);
+        act.addParameter(BosConstants.ORGANIZATION, DSValueType.ENUM, null);
         return act;
     }
     
@@ -140,7 +153,7 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
     }
     
     private void addOrganization(DSMap parameters) {
-        String orgName = parameters.getString("Organization");
+        String orgName = parameters.getString(BosConstants.ORGANIZATION);
         String url = getChildUrl(orgName);
         if (url != null) {
             put(orgName, new OrganizationNode(url));
@@ -190,7 +203,7 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
 
     @Override
     public String getTokenURL() {
-        return "https://api.buildingos.com/o/token/";
+        return BosConstants.TOKEN_URL;
     }
 
 
@@ -209,6 +222,16 @@ public class MainNode extends DSMainNode implements CredentialProvider, BosNode 
             instance.gatewayList = BosUtil.getGatewayList(instance.clientProxy);
         }
         return instance.gatewayList;
+    }
+
+    @Override
+    public boolean isPurgeEnabled() {
+        return purgeEnabled.getValue().toElement().toBoolean();
+    }
+
+    @Override
+    public long getMaxSizeInBytes() {
+        return maxBufferSize.getValue().toElement().toLong();
     }
 
 }

@@ -20,8 +20,8 @@ public class BosParameter extends DSMetadata {
         for(DSElement elem: enumDetails) {
             if (elem instanceof DSMap) {
                 DSMap enumObj = (DSMap) elem;
-                String dispName = enumObj.getString("displayName");
-                DSElement id = enumObj.get("id");
+                String dispName = enumObj.getString(BosApiConstants.DISP_NAME);
+                DSElement id = enumObj.get(BosApiConstants.ID);
                 if (dispName != null && id != null) {
                     enumVals.put(dispName, id);
                     dispNames.add(dispName);

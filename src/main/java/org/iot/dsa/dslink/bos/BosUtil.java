@@ -39,15 +39,15 @@ public class BosUtil {
     }
     
     public static Map<String, DSMap> getOrganizations(WebClientProxy clientProxy) {
-        Response resp = clientProxy.invoke(BosConstants.METHOD_GET, "https://api.buildingos.com/organizations/", new DSMap(), null);
+        Response resp = clientProxy.invoke(BosConstants.METHOD_GET, BosConstants.ORGS_URL, new DSMap(), null);
         Map<String, DSMap> orgs = new HashMap<String, DSMap>();
         try {
             DSMap json = getMapFromResponse(resp);
-            DSList orgsjson = json.getList("data");
+            DSList orgsjson = json.getList(BosApiConstants.DATA);
             for (DSIObject obj: orgsjson) {
                 if (obj instanceof DSMap) {
                     DSMap org = (DSMap) obj;
-                    orgs.put(org.getString("name"), org);
+                    orgs.put(org.getString(BosApiConstants.NAME), org);
                 }
             } 
         } catch (Exception e) {
@@ -60,7 +60,7 @@ public class BosUtil {
         Response resp = clientProxy.invoke(BosConstants.METHOD_GET, url, new DSMap(), null);
         try {
             DSMap json = getMapFromResponse(resp);
-            DSMap definitions = json.getMap("meta").getMap("definitions");
+            DSMap definitions = json.getMap(BosApiConstants.META).getMap(BosApiConstants.DEFINITIONS);
             List<BosParameter> enumParams = new ArrayList<BosParameter>();
             for (Entry defn: definitions) {
                 String defnName = defn.getKey();
@@ -68,7 +68,7 @@ public class BosUtil {
                 Response defnResp = clientProxy.invoke(BosConstants.METHOD_GET, defnUrl, new DSMap(), null);
                 try {
                     DSMap defnjson = getMapFromResponse(defnResp);
-                    DSList defnData = defnjson.getList("data");
+                    DSList defnData = defnjson.getList(BosApiConstants.DATA);
                     enumParams.add(new BosParameter(defnName, defnData));
                 } catch (Exception e) { 
                 }
@@ -82,7 +82,7 @@ public class BosUtil {
     private static List<BosParameter> buildingEnumParams = null;
     public static List<BosParameter> getBuildingEnumParams(WebClientProxy clientProxy) {
         if (buildingEnumParams == null) {
-            buildingEnumParams = getEnumParams(clientProxy, "https://api.buildingos.com/buildings");
+            buildingEnumParams = getEnumParams(clientProxy, BosConstants.BUILDINGS_URL);
         }
         return buildingEnumParams;
     }
@@ -90,26 +90,37 @@ public class BosUtil {
     private static List<BosParameter> meterEnumParams = null;
     public static List<BosParameter> getMeterEnumParams(WebClientProxy clientProxy) {
         if (meterEnumParams == null) {
-            meterEnumParams = getEnumParams(clientProxy, "https://api.buildingos.com/meters/");
+            meterEnumParams = getEnumParams(clientProxy, BosConstants.METERS_URL);
         }
         return meterEnumParams;
     }
     
     public static Map<String, String> getGatewayList(WebClientProxy clientProxy) {
-        Response resp = clientProxy.invoke(BosConstants.METHOD_GET, "https://api.buildingos.com/gateways", new DSMap(), null);
+        Response resp = clientProxy.invoke(BosConstants.METHOD_GET, BosConstants.GATEWAYS_URL, new DSMap(), null);
         Map<String, String> gatewayList = new HashMap<String, String>();
         try {
             DSMap json = getMapFromResponse(resp);
-            DSList data = json.getList("data");
+            DSList data = json.getList(BosApiConstants.DATA);
             for (DSElement elem: data) {
                 if (elem instanceof DSMap) {
-                    String id = ((DSMap) elem).getString("id");
-                    String name = ((DSMap) elem).getString("name");
+                    String id = ((DSMap) elem).getString(BosApiConstants.ID);
+                    String name = ((DSMap) elem).getString(BosApiConstants.NAME);
                     gatewayList.put(name, id);
                 }
             }
         } catch (Exception e) { 
         }
         return gatewayList;
+    }
+    
+    public static String splitCamelCase(String s) {
+        return s.replaceAll(
+            String.format("%s|%s|%s",
+               "(?<=[A-Z])(?=[A-Z][a-z])",
+               "(?<=[^A-Z])(?=[A-Z])",
+               "(?<=[A-Za-z])(?=[^A-Za-z])"
+            ),
+            " "
+         );
     }
 }

@@ -32,11 +32,11 @@ public class OrganizationNode extends BosObjectNode {
     @Override
     protected void declareDefaults() {
         super.declareDefaults();
-        declareDefault("Add Building", makeAddBuildingAction());
+        declareDefault(BosConstants.ACTION_ADD_BUILDING, makeAddBuildingAction());
     }
     
     protected DSList getChildList() {
-        DSIObject buildings = get("buildings");
+        DSIObject buildings = get(BosApiConstants.BUILDINGS);
         if (buildings instanceof DSList) {
             return (DSList) buildings;
         }
@@ -46,7 +46,7 @@ public class OrganizationNode extends BosObjectNode {
     @Override
     protected void refresh() {
         super.refresh();
-        put("Create Building", makeCreateBuildingAction());
+        put(BosConstants.ACTION_CREATE_BUILDING, makeCreateBuildingAction());
     }
     
     
@@ -67,7 +67,7 @@ public class OrganizationNode extends BosObjectNode {
                 }
             }
         };
-        act.addParameter("Building", DSValueType.ENUM, null);
+        act.addParameter(BosConstants.BUILDING, DSValueType.ENUM, null);
         return act;
     }
     
@@ -84,7 +84,7 @@ public class OrganizationNode extends BosObjectNode {
             public void prepareParameter(DSInfo target, DSMap parameter) {
             }  
         };
-        act.addParameter("name", DSValueType.STRING, null);
+        act.addParameter(BosApiConstants.NAME, DSValueType.STRING, null);
         List<BosParameter> enumParams = BosUtil.getBuildingEnumParams(MainNode.getClientProxy());
         if (enumParams == null) {
             return null;
@@ -92,20 +92,20 @@ public class OrganizationNode extends BosObjectNode {
         for (BosParameter param: enumParams) {
             act.addParameter(param.getMap());
         }
-        act.addDefaultParameter("vendorBuildingId", DSString.EMPTY, null);
-        act.addDefaultParameter("address", DSString.EMPTY, null);
-        act.addDefaultParameter("description", DSString.EMPTY, null);
-        act.addDefaultParameter("postalCode", DSString.EMPTY, null);
-        act.addDefaultParameter("countryCode", DSString.EMPTY, null);
-        act.addDefaultParameter("area", DSDouble.valueOf(0), null);
-        act.addDefaultParameter("longitude", DSDouble.valueOf(0), null);
-        act.addDefaultParameter("latitude", DSDouble.valueOf(0), null);
-        act.addDefaultParameter("geocoded", DSBool.TRUE, null);
+        act.addDefaultParameter(BosApiConstants.VENDOR_BUILDING_ID, DSString.EMPTY, null);
+        act.addDefaultParameter(BosApiConstants.ADDRESS, DSString.EMPTY, null);
+        act.addDefaultParameter(BosApiConstants.DESCRIPTION, DSString.EMPTY, null);
+        act.addDefaultParameter(BosApiConstants.POST_CODE, DSString.EMPTY, null);
+        act.addDefaultParameter(BosApiConstants.COUNTRY_CODE, DSString.EMPTY, null);
+        act.addDefaultParameter(BosApiConstants.AREA, DSDouble.valueOf(0), null);
+        act.addDefaultParameter(BosApiConstants.LONGITUDE, DSDouble.valueOf(0), null);
+        act.addDefaultParameter(BosApiConstants.LATITUDE, DSDouble.valueOf(0), null);
+        act.addDefaultParameter(BosApiConstants.GEOCODED, DSBool.TRUE, null);
         return act;
     }
     
     private void addBuilding(DSMap parameters) {
-        String bName = parameters.getString("Building");
+        String bName = parameters.getString(BosConstants.BUILDING);
         String url = getChildUrl(bName);
         if (url != null) {
             put(bName, new BuildingNode(url));
@@ -113,13 +113,13 @@ public class OrganizationNode extends BosObjectNode {
     }
     
     private void createBuilding(DSMap parameters) {
-        String name = parameters.getString("name");
-        DSIObject idObj = get("id");
+        String name = parameters.getString(BosApiConstants.NAME);
+        DSIObject idObj = get(BosApiConstants.ID);
         if (!(idObj instanceof DSIValue)) {
             warn("missing org id");
             return;
         }
-        parameters.put("organization", idObj.toString());
+        parameters.put(BosApiConstants.ORGANIZATION, idObj.toString());
         
         List<BosParameter> enumParams = BosUtil.getBuildingEnumParams(MainNode.getClientProxy());
         if (enumParams == null) {
@@ -133,12 +133,12 @@ public class OrganizationNode extends BosObjectNode {
             }
         }
         
-        Response resp = MainNode.getClientProxy().invoke("POST", "https://api.buildingos.com/buildings/", new DSMap(), parameters.toString());
+        Response resp = MainNode.getClientProxy().invoke(BosConstants.METHOD_POST, BosConstants.BUILDINGS_URL, new DSMap(), parameters.toString());
         
         if (resp != null) {
             try {
                 DSMap json = BosUtil.getMapFromResponse(resp);
-                String url = json.getString("url");
+                String url = json.getString(BosApiConstants.URL);
                 if (url != null) {
                     put(name, new BuildingNode(url));
                 }

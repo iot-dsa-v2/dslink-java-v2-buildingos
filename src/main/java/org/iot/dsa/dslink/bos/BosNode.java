@@ -26,7 +26,7 @@ public interface BosNode {
         if (getChildMap() != null) {
             DSMap child = getChildMap().get(name);
             if (child != null) {
-                String url = child.getString("url");
+                String url = child.getString(BosApiConstants.URL);
                 return url;
             }
         }

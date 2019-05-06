@@ -15,12 +15,12 @@ import org.iot.dsa.dslink.restadapter.UpdateSender;
 import org.iot.dsa.dslink.restadapter.Util;
 import org.iot.dsa.node.DSDouble;
 import org.iot.dsa.node.DSElement;
-import org.iot.dsa.node.DSFlexEnum;
 import org.iot.dsa.node.DSINumber;
 import org.iot.dsa.node.DSIObject;
 import org.iot.dsa.node.DSIValue;
 import org.iot.dsa.node.DSInfo;
 import org.iot.dsa.node.DSInt;
+import org.iot.dsa.node.DSJavaEnum;
 import org.iot.dsa.node.DSList;
 import org.iot.dsa.node.DSLong;
 import org.iot.dsa.node.DSMap;
@@ -41,36 +41,42 @@ import org.iot.dsa.util.DSException;
 import okhttp3.Response;
 
 public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler, Runnable, UpdateSender {
-    private static final String METHOD = "POST";
+    private static final String METHOD = BosConstants.METHOD_POST;
     
     private String subPath = "";
     private OutboundStream stream;
     private DSIValue streamParams;
     private double interval = -1;
     private int maxBatchSize = -1;
+    private double minUpdateInterval = 0;
+    private long minUpdateIntervalMillis = 0;
+    private long lastUpdateTs = -1;
     private Timer future;
     
-    private DSInfo getDataAct = getInfo("Get Data");
+    private DSInfo getDataAct = getInfo(BosConstants.ACTION_GET_DATA);
     private DSInfo lastRespCode = getInfo(Constants.LAST_RESPONSE_CODE);
     private DSInfo lastRespData = getInfo(Constants.LAST_RESPONSE_DATA);
     private DSInfo lastRespTs = getInfo(Constants.LAST_RESPONSE_TS);
+    
+    
 
     public MeterNode() {
         super();
     }
     
-    public MeterNode(String url, String subPath, double interval, int maxBatchSize) {
+    public MeterNode(String url, String subPath, double interval, int maxBatchSize, double minUpdateInterval) {
         super(url);
         this.subPath = subPath;
         this.interval = interval;
         this.maxBatchSize = maxBatchSize;
+        this.minUpdateInterval = minUpdateInterval;
     }
     
     @Override
     protected void declareDefaults() {
         super.declareDefaults();
-        declareDefault("Edit", makeEditAction());
-        declareDefault("Get Data", makeGetDataAction());
+        declareDefault(Constants.ACT_EDIT, makeEditAction());
+        declareDefault(BosConstants.ACTION_GET_DATA, makeGetDataAction());
         declareDefault(Constants.LAST_RESPONSE_CODE, DSInt.NULL).setReadOnly(true);
         declareDefault(Constants.LAST_RESPONSE_DATA, DSString.EMPTY).setReadOnly(true);
         declareDefault(Constants.LAST_RESPONSE_TS, DSString.EMPTY).setReadOnly(true);
@@ -79,17 +85,21 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     @Override
     protected void onStarted() {
         super.onStarted();
-        DSIObject pathobj = get("Subscribe Path");
+        DSIObject pathobj = get(Constants.SUB_PATH);
         if (pathobj instanceof DSString) {
             this.subPath = ((DSString) pathobj).toString();
         }
-        DSIObject intervobj = get("Push Interval");
+        DSIObject intervobj = get(BosConstants.PUSH_INTERVAL);
         if (intervobj instanceof DSINumber) {
             interval = ((DSINumber) intervobj).toDouble();
         }
-        DSIObject batchSizeObj = get("Maximum Batch Size");
+        DSIObject batchSizeObj = get(Constants.MAX_BATCH_SIZE);
         if (batchSizeObj instanceof DSINumber) {
             maxBatchSize = ((DSINumber) batchSizeObj).toInt();
+        }
+        DSIObject minIntervObj = get(BosConstants.MIN_UPDATE_INTERVAL);
+        if (minIntervObj instanceof DSINumber) {
+            minUpdateInterval = ((DSINumber) minIntervObj).toDouble();
         }
     }
     
@@ -97,10 +107,11 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     protected void refresh() {
         super.refresh();
         if (subPath != null) {
-            put("Subscribe Path", subPath).setReadOnly(true);
+            put(Constants.SUB_PATH, subPath).setReadOnly(true);
         }
-        put("Push Interval", interval).setReadOnly(true);
-        put("Maximum Batch Size", maxBatchSize).setReadOnly(true);
+        put(BosConstants.PUSH_INTERVAL, interval).setReadOnly(true);
+        put(Constants.MAX_BATCH_SIZE, maxBatchSize).setReadOnly(true);
+        put(BosConstants.MIN_UPDATE_INTERVAL, minUpdateInterval).setReadOnly(true);
         DSRuntime.run(new Runnable() {
             @Override
             public void run() {
@@ -112,6 +123,7 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     private void init() {
         DSIRequester requester = MainNode.getRequester();
         int qos = 0;
+        minUpdateIntervalMillis = (long) (minUpdateInterval * 1000);
         if (subPath != null && !subPath.isEmpty()) {
             requester.subscribe(this.subPath, DSLong.valueOf(qos), this);
         }
@@ -156,16 +168,18 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
                 return null;
             }
         };
-        act.addParameter("Subscribe Path", DSValueType.STRING, null);
-        act.addDefaultParameter("Push Interval", DSDouble.valueOf(3600), "seconds");
-        act.addDefaultParameter("Maximum Batch Size", DSLong.valueOf(50), "Maximum number of updates to put in a single REST request");
+        act.addParameter(Constants.SUB_PATH, DSValueType.STRING, null);
+        act.addDefaultParameter(BosConstants.PUSH_INTERVAL, DSDouble.valueOf(interval), "seconds");
+        act.addDefaultParameter(Constants.MAX_BATCH_SIZE, DSLong.valueOf(maxBatchSize), "Maximum number of updates to put in a single REST request");
+        act.addDefaultParameter(BosConstants.MIN_UPDATE_INTERVAL, DSDouble.valueOf(minUpdateInterval), "seconds");
         return act;
     }
     
     private void edit(DSMap parameters) {
-        subPath = parameters.getString("Subscribe Path");
-        interval = parameters.getDouble("Push Interval");
-        maxBatchSize = parameters.getInt("Maximum Batch Size");
+        subPath = parameters.getString(Constants.SUB_PATH);
+        interval = parameters.getDouble(BosConstants.PUSH_INTERVAL);
+        maxBatchSize = parameters.getInt(Constants.MAX_BATCH_SIZE);
+        minUpdateInterval = parameters.getDouble(BosConstants.MIN_UPDATE_INTERVAL);
         end();
         refresh();
     }
@@ -182,48 +196,46 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
                 return ((MeterNode) target.get()).getData(request);
             }
         };
-        act.addParameter("start", DSValueType.STRING, "ISO timestamp, optional");
-        act.addParameter("end", DSValueType.STRING, "ISO timestamp, optional");
-        act.addDefaultParameter("order", DSFlexEnum.valueOf("asc", new DSList().add("asc").add("desc")), "Ascending or Descending");
-        act.addDefaultParameter("resolution", DSFlexEnum.valueOf("month", 
-                new DSList().add("live").add("quarterhour").add("hour").add("day").add("month")), null);
-        act.addDefaultParameter("include", DSFlexEnum.valueOf("none", 
-                new DSList().add("cost").add("consumption").add("none")), "Whether to include cost, consumption, or neither");
+        act.addParameter(BosApiConstants.START, DSValueType.STRING, "ISO timestamp, optional");
+        act.addParameter(BosApiConstants.END, DSValueType.STRING, "ISO timestamp, optional");
+        act.addDefaultParameter(BosApiConstants.ORDER, DSJavaEnum.valueOf(BosApiConstants.OrderOptions.asc), "Ascending or Descending");
+        act.addDefaultParameter(BosApiConstants.RESOLUTION, DSJavaEnum.valueOf(BosApiConstants.ResolutionOptions.month), null);
+        act.addDefaultParameter(BosApiConstants.INCLUDE, DSJavaEnum.valueOf(BosApiConstants.IncludeOptions.none), "Whether to include cost, consumption, or neither");
         act.setResultType(ResultType.CLOSED_TABLE);
-        act.addColumnMetadata("localtime", DSValueType.STRING);
-        act.addColumnMetadata("value", DSValueType.NUMBER);
-        act.addColumnMetadata("cost", DSValueType.NUMBER);
-        act.addColumnMetadata("consumption", DSValueType.NUMBER);
+        act.addColumnMetadata(BosApiConstants.RECORD_TS, DSValueType.STRING);
+        act.addColumnMetadata(BosApiConstants.RECORD_VALUE, DSValueType.NUMBER);
+        act.addColumnMetadata(BosApiConstants.IncludeOptions.cost.name(), DSValueType.NUMBER);
+        act.addColumnMetadata(BosApiConstants.IncludeOptions.consumption.name(), DSValueType.NUMBER);
         return act;
     }
     
     private ActionResult getData(ActionInvocation request) {
         DSMap parameters = request.getParameters().copy();
-        DSIObject inclObj = parameters.get("include");
+        DSIObject inclObj = parameters.get(BosApiConstants.INCLUDE);
         String include = null;
         if (inclObj instanceof DSString) {
             include = inclObj.toString();
-            include = include.equals("none") ? null: include;
+            include = include.equals(BosApiConstants.IncludeOptions.none.name()) ? null: include;
         }
         if (include == null) {
-            parameters.remove("include");
+            parameters.remove(BosApiConstants.INCLUDE);
         }
-        Response resp = MainNode.getClientProxy().invoke("GET", getDataUrl(), parameters, null);
+        Response resp = MainNode.getClientProxy().invoke(BosConstants.METHOD_GET, getDataUrl(), parameters, null);
         try {
             DSMap json = BosUtil.getMapFromResponse(resp);
-            DSList data = json.getList("data");
+            DSList data = json.getList(BosApiConstants.DATA);
             
             DataTable dataTable = new DataTable();
-            dataTable.addColumn("localtime", DSValueType.STRING);
-            dataTable.addColumn("value", DSValueType.NUMBER);
+            dataTable.addColumn(BosApiConstants.RECORD_TS, DSValueType.STRING);
+            dataTable.addColumn(BosApiConstants.RECORD_VALUE, DSValueType.NUMBER);
             if (include != null) {
                 dataTable.addColumn(include, DSValueType.NUMBER);
             }
             for (DSElement rowElem: data) {
                 if (rowElem instanceof DSMap) {
                     DSMap rowMap = (DSMap) rowElem;
-                    DSElement time = rowMap.get("localtime");
-                    DSElement val = rowMap.get("value");
+                    DSElement time = rowMap.get(BosApiConstants.RECORD_TS);
+                    DSElement val = rowMap.get(BosApiConstants.RECORD_VALUE);
                     if (include != null) {
                         DSElement extra = rowMap.get(include);
                         dataTable.addRow(time, val, extra);
@@ -304,7 +316,12 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
             warn("Could not record update, no uuid found for meter " + getName());
             return;
         }
-        Util.storeInBuffer(uuid, new SubUpdate(dateTime.toString(), value.toString(), status.toString(), dateTime.timeInMillis()));
+        if (lastUpdateTs >= 0 && dateTime.timeInMillis() - lastUpdateTs < minUpdateIntervalMillis) {
+            // ignore
+        } else {
+            lastUpdateTs = dateTime.timeInMillis();
+            Util.storeInBuffer(uuid, new SubUpdate(dateTime.toString(), value.toString(), status.toString(), dateTime.timeInMillis()));
+        }
     }
     
     
@@ -370,23 +387,23 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     }
     
     private String getGatewayUrl() {
-        DSIObject gatewayObj = get("gateway");
+        DSIObject gatewayObj = get(BosApiConstants.GATEWAY);
         if (gatewayObj instanceof DSMap) {
-            return ((DSMap) gatewayObj).getString("url");
+            return ((DSMap) gatewayObj).getString(BosApiConstants.URL);
         }
         return null;
     }
     
     private String getDataUrl() {
-        DSIObject gatewayObj = get("data");
-        if (gatewayObj instanceof DSString) {
-            return ((DSString) gatewayObj).toString();
+        DSIObject dataObj = get(BosApiConstants.DATA);
+        if (dataObj instanceof DSString) {
+            return ((DSString) dataObj).toString();
         }
         return null;
     }
     
     private String getUuid() {
-        DSIObject uuidObj = get("uuid");
+        DSIObject uuidObj = get(BosApiConstants.UUID);
         if (!(uuidObj instanceof DSString)) {
             return null;
         }
@@ -428,7 +445,7 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     }
 
     @Override
-    public DSIValue getParams() {
+    public DSIValue getParameters() {
         return streamParams;
     }
 

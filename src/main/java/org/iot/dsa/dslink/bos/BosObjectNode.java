@@ -34,7 +34,7 @@ public abstract class BosObjectNode extends DSNode implements BosNode {
     @Override
     protected void onStarted() {
         super.onStarted();
-        DSIObject urlobj = get("url");
+        DSIObject urlobj = get(BosApiConstants.URL);
         if (urlobj instanceof DSString) {
             this.url = ((DSString) urlobj).toString();
         }
@@ -43,7 +43,7 @@ public abstract class BosObjectNode extends DSNode implements BosNode {
     @Override
     protected void declareDefaults() {
         super.declareDefaults();
-        declareDefault("Refresh", makeRefreshAction());
+        declareDefault(BosConstants.ACTION_REFRESH, makeRefreshAction());
     }
     
     @Override
@@ -82,10 +82,10 @@ public abstract class BosObjectNode extends DSNode implements BosNode {
     
     protected void refresh() {
         if (url != null) {
-            Response resp = MainNode.getClientProxy().invoke("GET", url, new DSMap(), null);
+            Response resp = MainNode.getClientProxy().invoke(BosConstants.METHOD_GET, url, new DSMap(), null);
             try {
                 DSMap json = BosUtil.getMapFromResponse(resp);
-                parse(json.getMap("data"));
+                parse(json.getMap(BosApiConstants.DATA));
             } catch (IOException e) {
                 warn("", e);
             }
@@ -121,7 +121,7 @@ public abstract class BosObjectNode extends DSNode implements BosNode {
     }
     
     protected String getChildDisplayName(DSMap childSummary) {
-        return childSummary.getString("displayName");
+        return childSummary.getString(BosApiConstants.DISP_NAME);
     }
     
     protected abstract DSList getChildList();

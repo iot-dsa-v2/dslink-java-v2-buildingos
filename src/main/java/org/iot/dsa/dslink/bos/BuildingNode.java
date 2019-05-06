@@ -36,13 +36,13 @@ public class BuildingNode extends BosObjectNode {
     @Override
     protected void declareDefaults() {
         super.declareDefaults();
-        declareDefault("Add Meter", makeAddMeterAction());
-        declareDefault("Bulk Add Meters", makeBulkAddMetersAction());
+        declareDefault(BosConstants.ACTION_ADD_METER, makeAddMeterAction());
+        declareDefault(BosConstants.ACTION_ADD_METERS_BULK, makeBulkAddMetersAction());
     }
 
     @Override
     protected DSList getChildList() {
-        DSIObject meters = get("meters");
+        DSIObject meters = get(BosApiConstants.METERS);
         if (meters instanceof DSList) {
             return (DSList) meters;
         }
@@ -52,7 +52,7 @@ public class BuildingNode extends BosObjectNode {
     @Override
     protected void refresh() {
         super.refresh();
-        put("Create Meter", makeCreateMeterAction());
+        put(BosConstants.ACTION_CREATE_METER, makeCreateMeterAction());
     }
 
     private DSAction makeAddMeterAction() {
@@ -67,7 +67,7 @@ public class BuildingNode extends BosObjectNode {
             @Override
             public void prepareParameter(DSInfo target, DSMap parameter) {
                 DSMetadata paramMeta = new DSMetadata(parameter);
-                if (paramMeta.getName().equals("Meter")) {
+                if (paramMeta.getName().equals(BosConstants.METER)) {
                     DSList range = ((BosNode) target.get()).getChildNames();
                     if (range.size() > 0) {
                         paramMeta.setType(DSFlexEnum.valueOf(range.getString(0), range));
@@ -75,10 +75,11 @@ public class BuildingNode extends BosObjectNode {
                 }
             }
         };
-        act.addParameter("Meter", DSValueType.ENUM, null);
-        act.addParameter("Subscribe Path", DSValueType.STRING, null);
-        act.addDefaultParameter("Push Interval", DSDouble.valueOf(3600), "seconds");
-        act.addDefaultParameter("Maximum Batch Size", DSLong.valueOf(50), "Maximum number of updates to put in a single REST request");
+        act.addParameter(BosConstants.METER, DSValueType.ENUM, null);
+        act.addParameter(Constants.SUB_PATH, DSValueType.STRING, null);
+        act.addDefaultParameter(BosConstants.PUSH_INTERVAL, DSDouble.valueOf(3600), "seconds");
+        act.addDefaultParameter(Constants.MAX_BATCH_SIZE, DSLong.valueOf(50), "Maximum number of updates to put in a single REST request");
+        act.addDefaultParameter(BosConstants.MIN_UPDATE_INTERVAL, DSDouble.valueOf(60), "seconds");
         return act;
     }
     
@@ -95,7 +96,7 @@ public class BuildingNode extends BosObjectNode {
                 return null;
             }
         };
-        act.addDefaultParameter("Meter Table", new DSList(), null);
+        act.addDefaultParameter(BosConstants.METER_TABLE, new DSList(), null);
         return act;
     }
     
@@ -111,7 +112,7 @@ public class BuildingNode extends BosObjectNode {
             @Override
             public void prepareParameter(DSInfo target, DSMap parameter) {
                 DSMetadata paramMeta = new DSMetadata(parameter);
-                if (paramMeta.getName().equals("gateway")) {
+                if (paramMeta.getName().equals(BosApiConstants.GATEWAY)) {
                     DSList range = new DSList();
                     List<String> rangeList = new ArrayList<String>(MainNode.getGatewayList().keySet());
                     rangeList.sort(null);
@@ -124,8 +125,8 @@ public class BuildingNode extends BosObjectNode {
                 }
             }  
         };
-        act.addParameter("displayName", DSValueType.STRING, null);
-        act.addParameter("gateway", DSValueType.ENUM, null);
+        act.addParameter(BosApiConstants.DISP_NAME, DSValueType.STRING, null);
+        act.addParameter(BosApiConstants.GATEWAY, DSValueType.ENUM, null);
         List<BosParameter> enumParams = BosUtil.getMeterEnumParams(MainNode.getClientProxy());
         if (enumParams == null) {
             return null;
@@ -133,62 +134,68 @@ public class BuildingNode extends BosObjectNode {
         for (BosParameter param: enumParams) {
             act.addParameter(param.getMap());
         }
-        act.addDefaultParameter("storageUnit", DSString.EMPTY, null);  
-        act.addDefaultParameter("vendorMeterId", DSString.EMPTY, null);
-        act.addParameter("Subscribe Path", DSValueType.STRING, null);
-        act.addDefaultParameter("Push Interval", DSDouble.valueOf(3600), "seconds");
-        act.addDefaultParameter("Maximum Batch Size", DSLong.valueOf(50), "Maximum number of updates to put in a single REST request");
+        act.addDefaultParameter(BosApiConstants.STORAGE_UNIT, DSString.EMPTY, null);  
+        act.addDefaultParameter(BosApiConstants.VENDOR_METER_ID, DSString.EMPTY, null);
+        act.addParameter(Constants.SUB_PATH, DSValueType.STRING, null);
+        act.addDefaultParameter(BosConstants.PUSH_INTERVAL, DSDouble.valueOf(3600), "seconds");
+        act.addDefaultParameter(Constants.MAX_BATCH_SIZE, DSLong.valueOf(50), "Maximum number of updates to put in a single REST request");
+        act.addDefaultParameter(BosConstants.MIN_UPDATE_INTERVAL, DSDouble.valueOf(60), "seconds");
         return act;
     }
     
     private void addMeter(DSMap parameters) {
-        String mname = parameters.getString("Meter");
+        String mname = parameters.getString(BosConstants.METER);
         String url = getChildUrl(mname);
-        String subPath = parameters.getString("Subscribe Path");
-        double interval = parameters.getDouble("Push Interval");
-        int maxBatchSize = parameters.getInt("Maximum Batch Size");
+        String subPath = parameters.getString(Constants.SUB_PATH);
+        double interval = parameters.getDouble(BosConstants.PUSH_INTERVAL);
+        int maxBatchSize = parameters.getInt(Constants.MAX_BATCH_SIZE);
+        double minUpdateInterval = parameters.getDouble(BosConstants.MIN_UPDATE_INTERVAL);
         if (url != null) {
-            put(mname, new MeterNode(url, subPath, interval, maxBatchSize));
+            put(mname, new MeterNode(url, subPath, interval, maxBatchSize, minUpdateInterval));
         }
     }
     
     private void bulkAddMeters(DSMap parameters) {
-        DSList table = parameters.getList("Meter Table");
+        DSList table = parameters.getList(BosConstants.METER_TABLE);
         for (DSElement elem: table) {
             String mname, subPath;
             double interval;
             int maxBatchSize;
+            double minUpdateInterval;
             if (elem instanceof DSMap) {
                 DSMap row = (DSMap) elem;
-                mname = row.getString("Meter");
-                subPath = row.getString("Subscribe Path");
-                interval = Util.getDouble(row, "Push Interval", 3600);
-                maxBatchSize = (int) Util.getDouble(row, "Maximum Batch Size", 50);
+                mname = row.getString(BosConstants.METER);
+                subPath = row.getString(Constants.SUB_PATH);
+                interval = Util.getDouble(row, BosConstants.PUSH_INTERVAL, 3600);
+                maxBatchSize = (int) Util.getDouble(row, Constants.MAX_BATCH_SIZE, 50);
+                minUpdateInterval = Util.getDouble(row, BosConstants.MIN_UPDATE_INTERVAL, 60);
                 String url = getChildUrl(mname);
-                put(mname, new MeterNode(url, subPath, interval, maxBatchSize));
+                put(mname, new MeterNode(url, subPath, interval, maxBatchSize, minUpdateInterval));
             } else if (elem instanceof DSList) {
                 DSList row = (DSList) elem;
                 mname = row.getString(1);
                 subPath = row.size() > 2 ? row.getString(2) : null;
                 interval = Util.getDouble(row, 3, 3600);
                 maxBatchSize = (int) Util.getDouble(row, 4, 50);
+                minUpdateInterval = Util.getDouble(row, 5, 60);
                 String url = getChildUrl(mname);
-                put(mname, new MeterNode(url, subPath, interval, maxBatchSize));
+                put(mname, new MeterNode(url, subPath, interval, maxBatchSize, minUpdateInterval));
             }
         }
     }
     
     private void createMeter(DSMap parameters) {
-        String name = parameters.getString("displayName");
-        String subPath = parameters.getString("Subscribe Path");
-        double interval = parameters.getDouble("Push Interval");
-        int maxBatchSize = parameters.getInt("Maximum Batch Size");
-        DSIObject idObj = get("id");
+        String name = parameters.getString(BosApiConstants.DISP_NAME);
+        String subPath = parameters.getString(Constants.SUB_PATH);
+        double interval = parameters.getDouble(BosConstants.PUSH_INTERVAL);
+        int maxBatchSize = parameters.getInt(Constants.MAX_BATCH_SIZE);
+        double minUpdateInterval = parameters.getDouble(BosConstants.MIN_UPDATE_INTERVAL);
+        DSIObject idObj = get(BosApiConstants.ID);
         if (!(idObj instanceof DSIValue)) {
             warn("missing building id");
             return;
         }
-        parameters.put("building", idObj.toString());
+        parameters.put(BosApiConstants.BUILDING, idObj.toString());
         
         List<BosParameter> enumParams = BosUtil.getMeterEnumParams(MainNode.getClientProxy());
         if (enumParams == null) {
@@ -201,22 +208,22 @@ public class BuildingNode extends BosObjectNode {
                 parameters.put(paramName, param.getId(disp));
             }
         }
-        String gatewayName = parameters.getString("gateway");
+        String gatewayName = parameters.getString(BosApiConstants.GATEWAY);
         if (gatewayName != null) {
             String gatewayId  = MainNode.getGatewayList().get(gatewayName);
             if (gatewayId != null) {
-                parameters.put("gateway", gatewayId);
+                parameters.put(BosApiConstants.GATEWAY, gatewayId);
             }
         }
         
-        Response resp = MainNode.getClientProxy().invoke("POST", "https://api.buildingos.com/meters/", new DSMap(), parameters.toString());
+        Response resp = MainNode.getClientProxy().invoke(BosConstants.METHOD_POST, BosConstants.METERS_URL, new DSMap(), parameters.toString());
         
         if (resp != null) {
             try {
                 DSMap json = BosUtil.getMapFromResponse(resp);
-                String url = json.getString("url");
+                String url = json.getString(BosApiConstants.URL);
                 if (url != null) {
-                    put(name, new MeterNode(url, subPath, interval, maxBatchSize));
+                    put(name, new MeterNode(url, subPath, interval, maxBatchSize, minUpdateInterval));
                 }
                 refresh();
             } catch (IOException e) {
