@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.iot.dsa.dslink.restadapter.SubUpdate;
 import org.iot.dsa.dslink.restadapter.WebClientProxy;
 import org.iot.dsa.io.json.JsonReader;
 import org.iot.dsa.node.DSElement;
@@ -12,6 +13,8 @@ import org.iot.dsa.node.DSIObject;
 import org.iot.dsa.node.DSList;
 import org.iot.dsa.node.DSMap;
 import org.iot.dsa.node.DSMap.Entry;
+import org.iot.dsa.node.DSStatus;
+import org.iot.dsa.time.DSDateTime;
 import okhttp3.Response;
 
 public class BosUtil {
@@ -122,5 +125,57 @@ public class BosUtil {
             ),
             " "
          );
+    }
+    
+    public static SubUpdate parseSubUpdate(DSElement record) {
+        if (record.isMap()) {
+            return parseSubUpdate(record.toMap());
+        } else if (record.isList()) {
+            return parseSubUpdate(record.toList());
+        }
+        return null;
+    }
+    
+    private static SubUpdate parseSubUpdate(DSMap record) {
+       String tsStr = record.getString("timestamp");
+       String val = record.getString("value");
+       String status = record.getString("status");
+       long ts = parseTs(tsStr);
+       if (ts == -1 || val == null) {
+           return null;
+       }
+       if (status == null) {
+           status = DSStatus.ok.toString();
+       }
+       return new SubUpdate(tsStr, val, status, ts);
+    }
+    
+    private static SubUpdate parseSubUpdate(DSList record) {
+        if (record.size() < 2) {
+            return null;
+        }
+        String tsStr = record.getString(0);
+        long ts = parseTs(tsStr);
+        int startInd = 0;
+        if (ts == -1) {
+            startInd = 1;
+            tsStr = record.getString(1);
+            ts = parseTs(tsStr);
+        }
+        if (ts == -1 || startInd + 1 >= record.size()) {
+            return null;
+        }
+        String val = record.getString(startInd + 1);
+        String status = startInd + 2 < record.size() ? record.getString(startInd + 2) : DSStatus.ok.toString();
+        
+        return new SubUpdate(tsStr, val, status, ts);
+    }
+    
+    public static long parseTs(String tsStr) {
+        try {
+            return DSDateTime.valueOf(tsStr).timeInMillis();
+        } catch (Exception e) {
+        }
+        return -1;
     }
 }

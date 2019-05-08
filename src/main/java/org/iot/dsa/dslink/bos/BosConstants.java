@@ -14,6 +14,7 @@ public class BosConstants {
     public static final String ACTION_CREATE_METER = "Create Meter";
     public static final String ACTION_GET_DATA = "Get Data";
     public static final String ACTION_REFRESH = "Refresh";
+    public static final String ACTION_INSERT_BULK = "Bulk Insert Records";
     
     public static final String CLIENT_ID = "Client ID";
     public static final String CLIENT_SECRET = "Client Secret";
@@ -24,6 +25,7 @@ public class BosConstants {
     public static final String PUSH_INTERVAL = "Push Interval";
     public static final String MIN_UPDATE_INTERVAL = "Minimum time between updates";
     public static final String METER_TABLE = "Meter Table";
+    public static final String RECORD_TABLE = "Records";
     
     public static final String TOKEN_URL = "https://api.buildingos.com/o/token/";
     public static final String GATEWAYS_URL = "https://api.buildingos.com/gateways";

@@ -57,8 +57,6 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
     private DSInfo lastRespCode = getInfo(Constants.LAST_RESPONSE_CODE);
     private DSInfo lastRespData = getInfo(Constants.LAST_RESPONSE_DATA);
     private DSInfo lastRespTs = getInfo(Constants.LAST_RESPONSE_TS);
-    
-    
 
     public MeterNode() {
         super();
@@ -77,6 +75,7 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
         super.declareDefaults();
         declareDefault(Constants.ACT_EDIT, makeEditAction());
         declareDefault(BosConstants.ACTION_GET_DATA, makeGetDataAction());
+        declareDefault(BosConstants.ACTION_INSERT_BULK, makeBulkInsertAction());
         declareDefault(Constants.LAST_RESPONSE_CODE, DSInt.NULL).setReadOnly(true);
         declareDefault(Constants.LAST_RESPONSE_DATA, DSString.EMPTY).setReadOnly(true);
         declareDefault(Constants.LAST_RESPONSE_TS, DSString.EMPTY).setReadOnly(true);
@@ -288,6 +287,45 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
             return getCursor().next();
         }
     }
+    
+    private DSAction makeBulkInsertAction() {
+        DSAction act = new DSAction() { 
+            @Override
+            public void prepareParameter(DSInfo target, DSMap parameter) {
+            }
+            
+            @Override
+            public ActionResult invoke(DSInfo target, ActionInvocation request) {
+                ((MeterNode) target.get()).bulkInsertRecords(request.getParameters());
+                return null;
+            }
+        };
+        act.addParameter(BosConstants.RECORD_TABLE, DSValueType.LIST, "table of records to send to meter");
+        return act;
+    }
+    
+    private void bulkInsertRecords(DSMap parameters) {
+        DSList records = parameters.getList(BosConstants.RECORD_TABLE);
+        String uuid = getUuid();
+        if (uuid == null) {
+            warn("Could not record updates, no uuid found for meter " + getName());
+            return;
+        }
+        long lastUpdateTs = -1;
+        for (DSElement record: records) {
+            
+            SubUpdate update = BosUtil.parseSubUpdate(record);
+            if (update != null) {
+                if (lastUpdateTs >= 0 && update.ts - lastUpdateTs < minUpdateIntervalMillis) {
+                    // ignore
+                } else {
+                    lastUpdateTs = update.ts;
+                    Util.storeInBuffer(uuid, update);
+                }
+            }
+        }
+        Util.processBuffer(uuid, this); //TODO: Should we do this?
+    }
 
     @Override
     public void onClose() {
@@ -320,7 +358,7 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
             // ignore
         } else {
             lastUpdateTs = dateTime.timeInMillis();
-            Util.storeInBuffer(uuid, new SubUpdate(dateTime.toString(), value.toString(), status.toString(), dateTime.timeInMillis()));
+            Util.storeInBuffer(uuid, new SubUpdate(dateTime, value, status));
         }
     }
     

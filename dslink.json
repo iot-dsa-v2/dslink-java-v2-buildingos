@@ -1,6 +1,6 @@
 {
   "name": "dslink-java-v2-buildingos",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "BuildingOS Integration",
   "main": "bin/dslink-java-v2-buildingos",
   "configs": {
