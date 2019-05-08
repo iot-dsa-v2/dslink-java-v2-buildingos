@@ -35,6 +35,10 @@ Also allows the user to optionally input a DSA path to subscribe to. As in the R
 #### Meter Node
 - **Actions**: 
 	- **Get Data**: Returns a segment of this meter’s historical data, for the time range and resolution specified by the user
+	- **Bulk Insert Records**: Push multiple historical records to the meter. Takes in an array of records, each of which should be an array of form `[timestamp, value, status]`. Some notes:
+		- The status is optional, and defaults to "OK"
+		- Records can also be of form `[index, timestamp, value, status]`, in which case the index will be ignored. This is for better interoperability with DSA tables.
+		- The table output by the GetHistory action of a historian DSLink (such as ETSDB or DynamoDB) can be used as input to this action.
 - **Metrics**: 
 	- Relevant metadata about the meter, e.g. status, units, resource type
 	- The DSA path from which to push data to this meter
