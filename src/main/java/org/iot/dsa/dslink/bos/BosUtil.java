@@ -1,9 +1,7 @@
 package org.iot.dsa.dslink.bos;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.iot.dsa.dslink.restadapter.SubUpdate;
 import org.iot.dsa.dslink.restadapter.WebClientProxy;
@@ -42,29 +40,46 @@ public class BosUtil {
     }
     
     public static Map<String, DSMap> getOrganizations(WebClientProxy clientProxy) {
-        Response resp = clientProxy.invoke(BosConstants.METHOD_GET, BosConstants.ORGS_URL, new DSMap(), null);
+        String url = BosConstants.ORGS_URL;
         Map<String, DSMap> orgs = new HashMap<String, DSMap>();
-        try {
-            DSMap json = getMapFromResponse(resp);
-            DSList orgsjson = json.getList(BosApiConstants.DATA);
-            for (DSIObject obj: orgsjson) {
-                if (obj instanceof DSMap) {
-                    DSMap org = (DSMap) obj;
-                    orgs.put(org.getString(BosApiConstants.NAME), org);
+        while (url != null) {
+            Response resp = clientProxy.invoke(BosConstants.METHOD_GET, url, new DSMap(), null);
+            try {
+                DSMap json = getMapFromResponse(resp);
+                DSList orgsjson = json.getList(BosApiConstants.DATA);
+                for (DSIObject obj: orgsjson) {
+                    if (obj instanceof DSMap) {
+                        DSMap org = (DSMap) obj;
+                        orgs.put(org.getString(BosApiConstants.NAME), org);
+                    }
                 }
-            } 
-        } catch (Exception e) {
-            return null;
+                url = getNextPageUrl(json); 
+            } catch (Exception e) {
+                url = null;
+            }
         }
         return orgs;
     }
     
-    private static List<BosParameter> getEnumParams(WebClientProxy clientProxy, String url) {
+    private static String getNextPageUrl(DSMap json) {
+        DSMap links = json.getMap("links");
+        if (links == null) {
+            return null;
+        }
+        String next = links.getString("next");
+        if (next == null || next.equals("null")) {
+            return null;
+        } else {
+            return next;
+        }
+    }
+    
+    private static Map<String, BosParameter> getEnumParams(WebClientProxy clientProxy, String url) {
         Response resp = clientProxy.invoke(BosConstants.METHOD_GET, url, new DSMap(), null);
         try {
             DSMap json = getMapFromResponse(resp);
             DSMap definitions = json.getMap(BosApiConstants.META).getMap(BosApiConstants.DEFINITIONS);
-            List<BosParameter> enumParams = new ArrayList<BosParameter>();
+            Map<String, BosParameter> enumParams = new HashMap<String, BosParameter>();
             for (Entry defn: definitions) {
                 String defnName = defn.getKey();
                 String defnUrl = defn.getValue().toString();
@@ -72,7 +87,7 @@ public class BosUtil {
                 try {
                     DSMap defnjson = getMapFromResponse(defnResp);
                     DSList defnData = defnjson.getList(BosApiConstants.DATA);
-                    enumParams.add(new BosParameter(defnName, defnData));
+                    enumParams.put(defnName, new BosParameter(defnName, defnData));
                 } catch (Exception e) { 
                 }
             }
@@ -82,16 +97,16 @@ public class BosUtil {
         }
     }
     
-    private static List<BosParameter> buildingEnumParams = null;
-    public static List<BosParameter> getBuildingEnumParams(WebClientProxy clientProxy) {
+    private static Map<String, BosParameter> buildingEnumParams = null;
+    public static Map<String, BosParameter> getBuildingEnumParams(WebClientProxy clientProxy) {
         if (buildingEnumParams == null) {
             buildingEnumParams = getEnumParams(clientProxy, BosConstants.BUILDINGS_URL);
         }
         return buildingEnumParams;
     }
     
-    private static List<BosParameter> meterEnumParams = null;
-    public static List<BosParameter> getMeterEnumParams(WebClientProxy clientProxy) {
+    private static Map<String, BosParameter> meterEnumParams = null;
+    public static Map<String, BosParameter> getMeterEnumParams(WebClientProxy clientProxy) {
         if (meterEnumParams == null) {
             meterEnumParams = getEnumParams(clientProxy, BosConstants.METERS_URL);
         }
@@ -99,19 +114,24 @@ public class BosUtil {
     }
     
     public static Map<String, String> getGatewayList(WebClientProxy clientProxy) {
-        Response resp = clientProxy.invoke(BosConstants.METHOD_GET, BosConstants.GATEWAYS_URL, new DSMap(), null);
+        String url = BosConstants.GATEWAYS_URL;
         Map<String, String> gatewayList = new HashMap<String, String>();
-        try {
-            DSMap json = getMapFromResponse(resp);
-            DSList data = json.getList(BosApiConstants.DATA);
-            for (DSElement elem: data) {
-                if (elem instanceof DSMap) {
-                    String id = ((DSMap) elem).getString(BosApiConstants.ID);
-                    String name = ((DSMap) elem).getString(BosApiConstants.NAME);
-                    gatewayList.put(name, id);
+        while (url != null) {
+            Response resp = clientProxy.invoke(BosConstants.METHOD_GET, url, new DSMap(), null);
+            try {
+                DSMap json = getMapFromResponse(resp);
+                DSList data = json.getList(BosApiConstants.DATA);
+                for (DSElement elem: data) {
+                    if (elem instanceof DSMap) {
+                        String id = ((DSMap) elem).getString(BosApiConstants.ID);
+                        String name = ((DSMap) elem).getString(BosApiConstants.NAME);
+                        gatewayList.put(name, id);
+                    }
                 }
+                url = getNextPageUrl(json);
+            } catch (Exception e) {
+                url = null;
             }
-        } catch (Exception e) { 
         }
         return gatewayList;
     }

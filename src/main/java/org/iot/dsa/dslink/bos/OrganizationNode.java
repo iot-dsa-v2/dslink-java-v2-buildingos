@@ -1,9 +1,7 @@
 package org.iot.dsa.dslink.bos;
 
 import java.io.IOException;
-import java.util.List;
-import org.iot.dsa.node.DSBool;
-import org.iot.dsa.node.DSDouble;
+import java.util.Map;
 import org.iot.dsa.node.DSFlexEnum;
 import org.iot.dsa.node.DSIObject;
 import org.iot.dsa.node.DSIValue;
@@ -85,22 +83,22 @@ public class OrganizationNode extends BosObjectNode {
             }  
         };
         act.addParameter(BosApiConstants.NAME, DSValueType.STRING, null);
-        List<BosParameter> enumParams = BosUtil.getBuildingEnumParams(MainNode.getClientProxy());
+        Map<String, BosParameter> enumParams = BosUtil.getBuildingEnumParams(MainNode.getClientProxy());
         if (enumParams == null) {
             return null;
         }
-        for (BosParameter param: enumParams) {
-            act.addParameter(param.getMap());
-        }
+        
+        act.addParameter(enumParams.get("buildingType").getMap());
+
         act.addDefaultParameter(BosApiConstants.VENDOR_BUILDING_ID, DSString.EMPTY, null);
         act.addDefaultParameter(BosApiConstants.ADDRESS, DSString.EMPTY, null);
-        act.addDefaultParameter(BosApiConstants.DESCRIPTION, DSString.EMPTY, null);
+//        act.addDefaultParameter(BosApiConstants.DESCRIPTION, DSString.EMPTY, null);
         act.addDefaultParameter(BosApiConstants.POST_CODE, DSString.EMPTY, null);
         act.addDefaultParameter(BosApiConstants.COUNTRY_CODE, DSString.EMPTY, null);
-        act.addDefaultParameter(BosApiConstants.AREA, DSDouble.valueOf(0), null);
-        act.addDefaultParameter(BosApiConstants.LONGITUDE, DSDouble.valueOf(0), null);
-        act.addDefaultParameter(BosApiConstants.LATITUDE, DSDouble.valueOf(0), null);
-        act.addDefaultParameter(BosApiConstants.GEOCODED, DSBool.TRUE, null);
+//        act.addDefaultParameter(BosApiConstants.AREA, DSDouble.valueOf(0), null);
+//        act.addDefaultParameter(BosApiConstants.LONGITUDE, DSDouble.valueOf(0), null);
+//        act.addDefaultParameter(BosApiConstants.LATITUDE, DSDouble.valueOf(0), null);
+//        act.addDefaultParameter(BosApiConstants.GEOCODED, DSBool.TRUE, null);
         return act;
     }
     
@@ -121,11 +119,11 @@ public class OrganizationNode extends BosObjectNode {
         }
         parameters.put(BosApiConstants.ORGANIZATION, idObj.toString());
         
-        List<BosParameter> enumParams = BosUtil.getBuildingEnumParams(MainNode.getClientProxy());
+        Map<String, BosParameter> enumParams = BosUtil.getBuildingEnumParams(MainNode.getClientProxy());
         if (enumParams == null) {
             return;
         }
-        for (BosParameter param: enumParams) {
+        for (BosParameter param: enumParams.values()) {
             String paramName = param.getName();
             String disp = parameters.getString(paramName);
             if (disp != null) {

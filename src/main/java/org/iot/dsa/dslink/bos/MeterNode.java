@@ -466,7 +466,7 @@ public class MeterNode extends BosObjectNode implements OutboundSubscribeHandler
         if (resp == null) {
             put(lastRespCode, DSInt.valueOf(-1));
             put(lastRespData, DSString.valueOf("Failed to send update"));
-            put(lastRespTs, DSString.valueOf(DSDateTime.currentTime()));
+            put(lastRespTs, DSString.valueOf(DSDateTime.now()));
         } else {
             int status = resp.code();
             String data = null;

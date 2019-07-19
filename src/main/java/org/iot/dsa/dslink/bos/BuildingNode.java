@@ -3,6 +3,7 @@ package org.iot.dsa.dslink.bos;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.iot.dsa.dslink.restadapter.Constants;
 import org.iot.dsa.dslink.restadapter.Util;
 import org.iot.dsa.node.DSDouble;
@@ -15,7 +16,6 @@ import org.iot.dsa.node.DSList;
 import org.iot.dsa.node.DSLong;
 import org.iot.dsa.node.DSMap;
 import org.iot.dsa.node.DSMetadata;
-import org.iot.dsa.node.DSString;
 import org.iot.dsa.node.DSValueType;
 import org.iot.dsa.node.action.ActionInvocation;
 import org.iot.dsa.node.action.ActionResult;
@@ -127,15 +127,18 @@ public class BuildingNode extends BosObjectNode {
         };
         act.addParameter(BosApiConstants.DISP_NAME, DSValueType.STRING, null);
         act.addParameter(BosApiConstants.GATEWAY, DSValueType.ENUM, null);
-        List<BosParameter> enumParams = BosUtil.getMeterEnumParams(MainNode.getClientProxy());
+        Map<String, BosParameter> enumParams = BosUtil.getMeterEnumParams(MainNode.getClientProxy());
         if (enumParams == null) {
             return null;
         }
-        for (BosParameter param: enumParams) {
-            act.addParameter(param.getMap());
-        }
-        act.addDefaultParameter(BosApiConstants.STORAGE_UNIT, DSString.EMPTY, null);  
-        act.addDefaultParameter(BosApiConstants.VENDOR_METER_ID, DSString.EMPTY, null);
+
+        act.addParameter(enumParams.get("sourceUnit").getMap());
+        act.addParameter(enumParams.get("resourceType").getMap());
+        act.addParameter(enumParams.get("readingType").getMap());
+        act.addParameter(enumParams.get("displayUnit").getMap());
+
+//        act.addDefaultParameter(BosApiConstants.STORAGE_UNIT, DSString.EMPTY, null);  
+//        act.addDefaultParameter(BosApiConstants.VENDOR_METER_ID, DSString.EMPTY, null);
         act.addParameter(Constants.SUB_PATH, DSValueType.STRING, null);
         act.addDefaultParameter(BosConstants.PUSH_INTERVAL, DSDouble.valueOf(3600), "seconds");
         act.addDefaultParameter(Constants.MAX_BATCH_SIZE, DSLong.valueOf(50), "Maximum number of updates to put in a single REST request");
@@ -197,11 +200,11 @@ public class BuildingNode extends BosObjectNode {
         }
         parameters.put(BosApiConstants.BUILDING, idObj.toString());
         
-        List<BosParameter> enumParams = BosUtil.getMeterEnumParams(MainNode.getClientProxy());
+        Map<String, BosParameter> enumParams = BosUtil.getMeterEnumParams(MainNode.getClientProxy());
         if (enumParams == null) {
             return;
         }
-        for (BosParameter param: enumParams) {
+        for (BosParameter param: enumParams.values()) {
             String paramName = param.getName();
             String disp = parameters.getString(paramName);
             if (disp != null) {
