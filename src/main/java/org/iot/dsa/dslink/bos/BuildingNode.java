@@ -190,9 +190,10 @@ public class BuildingNode extends BosObjectNode {
     private void createMeter(DSMap parameters) {
         String name = parameters.getString(BosApiConstants.DISP_NAME);
         String subPath = parameters.getString(Constants.SUB_PATH);
-        double interval = parameters.getDouble(BosConstants.PUSH_INTERVAL);
-        int maxBatchSize = parameters.getInt(Constants.MAX_BATCH_SIZE);
-        double minUpdateInterval = parameters.getDouble(BosConstants.MIN_UPDATE_INTERVAL);
+        parameters.remove(Constants.SUB_PATH);
+        double interval = parameters.remove(BosConstants.PUSH_INTERVAL).toDouble();
+        int maxBatchSize = parameters.remove(Constants.MAX_BATCH_SIZE).toInt();
+        double minUpdateInterval = parameters.remove(BosConstants.MIN_UPDATE_INTERVAL).toDouble();
         DSIObject idObj = get(BosApiConstants.ID);
         if (!(idObj instanceof DSIValue)) {
             warn("missing building id");

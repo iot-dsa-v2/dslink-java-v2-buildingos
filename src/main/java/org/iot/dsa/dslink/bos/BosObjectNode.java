@@ -82,6 +82,7 @@ public abstract class BosObjectNode extends DSNode implements BosNode {
     
     protected void refresh() {
         if (url != null) {
+            childMap = null;
             Response resp = MainNode.getClientProxy().invoke(BosConstants.METHOD_GET, url, new DSMap(), null);
             try {
                 DSMap json = BosUtil.getMapFromResponse(resp);
