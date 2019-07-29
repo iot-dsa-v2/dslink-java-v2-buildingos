@@ -33,7 +33,7 @@ import org.iot.dsa.util.DSException;
  */
 public class MainNode extends DSMainNode implements CredentialProvider, BosNode, PurgeSettings {
 
-    private final WebClientProxy clientProxy = new WebClientProxy(this);
+    private final WebClientProxy clientProxy = new WebClientProxy(this, 30000, 30000);
     private Map<String, DSMap> orgList;
     private Map<String, String> gatewayList;
     private static final Object requesterLock = new Object();
