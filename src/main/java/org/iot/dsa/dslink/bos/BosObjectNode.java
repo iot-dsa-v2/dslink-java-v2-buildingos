@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import org.iot.dsa.dslink.ActionResults;
 import org.iot.dsa.node.DSElement;
 import org.iot.dsa.node.DSIObject;
 import org.iot.dsa.node.DSInfo;
@@ -12,8 +13,7 @@ import org.iot.dsa.node.DSMap;
 import org.iot.dsa.node.DSNode;
 import org.iot.dsa.node.DSString;
 import org.iot.dsa.node.DSMap.Entry;
-import org.iot.dsa.node.action.ActionInvocation;
-import org.iot.dsa.node.action.ActionResult;
+import org.iot.dsa.node.action.DSIActionRequest;
 import org.iot.dsa.node.action.DSAction;
 import org.iot.dsa.node.action.DuplicateAction;
 import org.iot.dsa.node.action.RenameAction;
@@ -69,11 +69,11 @@ public abstract class BosObjectNode extends DSNode implements BosNode {
     }
     
     private DSIObject makeRefreshAction() {
-        DSAction act = new DSAction.Parameterless() {
+        DSAction act = new DSAction() {
             
             @Override
-            public ActionResult invoke(DSInfo target, ActionInvocation request) {
-                ((BosObjectNode) target.get()).refresh();
+            public ActionResults invoke(DSIActionRequest request) {
+                ((BosObjectNode) request.getTarget()).refresh();
                 return null;
             }
         };

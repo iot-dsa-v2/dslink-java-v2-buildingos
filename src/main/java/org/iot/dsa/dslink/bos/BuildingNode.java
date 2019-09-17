@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.iot.dsa.dslink.ActionResults;
 import org.iot.dsa.dslink.restadapter.Constants;
 import org.iot.dsa.dslink.restadapter.Util;
 import org.iot.dsa.node.DSDouble;
@@ -12,13 +13,14 @@ import org.iot.dsa.node.DSFlexEnum;
 import org.iot.dsa.node.DSIObject;
 import org.iot.dsa.node.DSIValue;
 import org.iot.dsa.node.DSInfo;
+import org.iot.dsa.node.DSJavaEnum;
 import org.iot.dsa.node.DSList;
 import org.iot.dsa.node.DSLong;
 import org.iot.dsa.node.DSMap;
 import org.iot.dsa.node.DSMetadata;
+import org.iot.dsa.node.DSString;
 import org.iot.dsa.node.DSValueType;
-import org.iot.dsa.node.action.ActionInvocation;
-import org.iot.dsa.node.action.ActionResult;
+import org.iot.dsa.node.action.DSIActionRequest;
 import org.iot.dsa.node.action.DSAction;
 import org.iot.dsa.util.DSException;
 import okhttp3.Response;
@@ -59,8 +61,8 @@ public class BuildingNode extends BosObjectNode {
         DSAction act = new DSAction() {
             
             @Override
-            public ActionResult invoke(DSInfo target, ActionInvocation request) {
-                ((BuildingNode) target.get()).addMeter(request.getParameters());
+            public ActionResults invoke(DSIActionRequest request) {
+                ((BuildingNode) request.getTarget()).addMeter(request.getParameters());
                 return null;
             }
 
@@ -75,8 +77,8 @@ public class BuildingNode extends BosObjectNode {
                 }
             }
         };
-        act.addParameter(BosConstants.METER, DSValueType.ENUM, null);
-        act.addParameter(Constants.SUB_PATH, DSValueType.STRING, null);
+        act.addParameter(BosConstants.METER, DSJavaEnum.NULL, null);
+        act.addParameter(Constants.SUB_PATH, DSString.NULL, null);
         act.addDefaultParameter(BosConstants.PUSH_INTERVAL, DSDouble.valueOf(3600), "seconds");
         act.addDefaultParameter(Constants.MAX_BATCH_SIZE, DSLong.valueOf(50), "Maximum number of updates to put in a single REST request");
         act.addDefaultParameter(BosConstants.MIN_UPDATE_INTERVAL, DSDouble.valueOf(60), "seconds");
@@ -91,8 +93,8 @@ public class BuildingNode extends BosObjectNode {
             }
             
             @Override
-            public ActionResult invoke(DSInfo target, ActionInvocation request) {
-                ((BuildingNode) target.get()).bulkAddMeters(request.getParameters());
+            public ActionResults invoke(DSIActionRequest request) {
+                ((BuildingNode) request.getTarget()).bulkAddMeters(request.getParameters());
                 return null;
             }
         };
@@ -104,8 +106,8 @@ public class BuildingNode extends BosObjectNode {
         DSAction act = new DSAction() {
 
             @Override
-            public ActionResult invoke(DSInfo target, ActionInvocation request) {
-                ((BuildingNode) target.get()).createMeter(request.getParameters());
+            public ActionResults invoke(DSIActionRequest request) {
+                ((BuildingNode) request.getTarget()).createMeter(request.getParameters());
                 return null;
             }
 
@@ -125,8 +127,8 @@ public class BuildingNode extends BosObjectNode {
                 }
             }  
         };
-        act.addParameter(BosApiConstants.DISP_NAME, DSValueType.STRING, null);
-        act.addParameter(BosApiConstants.GATEWAY, DSValueType.ENUM, null);
+        act.addParameter(BosApiConstants.DISP_NAME, DSString.NULL, null);
+        act.addParameter(BosApiConstants.GATEWAY, DSJavaEnum.NULL, null);
         Map<String, BosParameter> enumParams = BosUtil.getMeterEnumParams(MainNode.getClientProxy());
         if (enumParams == null) {
             return null;
@@ -139,7 +141,7 @@ public class BuildingNode extends BosObjectNode {
 
 //        act.addDefaultParameter(BosApiConstants.STORAGE_UNIT, DSString.EMPTY, null);  
 //        act.addDefaultParameter(BosApiConstants.VENDOR_METER_ID, DSString.EMPTY, null);
-        act.addParameter(Constants.SUB_PATH, DSValueType.STRING, null);
+        act.addParameter(Constants.SUB_PATH, DSString.NULL, null);
         act.addDefaultParameter(BosConstants.PUSH_INTERVAL, DSDouble.valueOf(3600), "seconds");
         act.addDefaultParameter(Constants.MAX_BATCH_SIZE, DSLong.valueOf(50), "Maximum number of updates to put in a single REST request");
         act.addDefaultParameter(BosConstants.MIN_UPDATE_INTERVAL, DSDouble.valueOf(60), "seconds");
